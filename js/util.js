@@ -127,7 +127,7 @@ export function confirmBox(title, text, okLabel, cancelLabel) {
   });
 }
 
-// Skalerer ned bilder før lagring, slik at Kwester ikke blir for tunge.
+// Skalerer ned bilder før lagring, slik at kwest ikke blir for tunge.
 export function readImage(file, maxSide = 1280, quality = 0.82) {
   return new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith('image/')) return reject(new Error('not-image'));

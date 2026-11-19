@@ -1,4 +1,4 @@
-// Ende-til-ende-test i demo-modus: lærer lager konto, importerer en Kwest, to elever spiller.
+// Ende-til-ende-test i demo-modus: lærer lager konto, importerer et kwest, to elever spiller.
 // Kjør: node tests/e2e.mjs   (bilder havner i mappen gitt av SHOTS, ellers ingen bilder)
 import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
@@ -34,12 +34,12 @@ try {
   await teacher.getByPlaceholder('E-post').fill('test@example.com');
   await teacher.getByPlaceholder('Passord').fill('hemmelig123');
   await teacher.locator('form button[type=submit]').click();
-  await teacher.getByRole('heading', { name: 'Mine Kwester' }).waitFor();
+  await teacher.getByRole('heading', { name: 'Mine kwest' }).waitFor();
   step('Lærer laget konto');
 
-  // Lag en Kwest for hånd
-  await teacher.getByRole('link', { name: '+ Ny Kwest' }).click();
-  await teacher.getByPlaceholder('Navn på Kwesten').fill('Min første');
+  // Lag et kwest for hånd
+  await teacher.getByRole('link', { name: '+ Nytt kwest' }).click();
+  await teacher.getByPlaceholder('Navn på kwestet').fill('Min første');
   await teacher.getByPlaceholder('Skriv spørsmålet her').fill('Hva er 2 + 2?');
   const opts = teacher.locator('.opt-input');
   await opts.nth(0).fill('3'); await opts.nth(1).fill('4');
@@ -99,7 +99,7 @@ try {
   await shot(p1, '06-mobil-navn');
   await p1.getByPlaceholder('Skriv navnet ditt').fill('Ola');
   await p1.getByRole('button', { name: 'Bli med!' }).click();
-  await p1.getByText('Du er med i Kwesten!').waitFor();
+  await p1.getByText('Du er med i kwestet!').waitFor();
   // Elev 2 skriver PIN selv
   await p2.goto(URL0);
   await p2.getByPlaceholder('123456').fill(pin);
@@ -109,7 +109,7 @@ try {
   await p2.getByText('Navnet er allerede tatt').waitFor();
   await p2.getByPlaceholder('Skriv navnet ditt').fill('Kari');
   await p2.getByRole('button', { name: 'Bli med!' }).click();
-  await p2.getByText('Du er med i Kwesten!').waitFor();
+  await p2.getByText('Du er med i kwestet!').waitFor();
   await host.locator('.chip').nth(1).waitFor();
   await shot(host, '07-lobby');
   await shot(p1, '08-mobil-lobby');

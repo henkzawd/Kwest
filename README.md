@@ -9,7 +9,7 @@ Første gang: følg [OPPSETT.md](OPPSETT.md).
 ## Slik fungerer det
 
 **For læreren**
-1. Logg inn på lærersiden og trykk **Ny Kwest** (eller **Lag med AI** / **Importer**).
+1. Logg inn på lærersiden og trykk **Nytt kwest** (eller **Lag med AI** / **Importer**).
 2. Legg til spørsmål. Hvert spørsmål kan ha tekst, bilde, lyd (f.eks. en hjertelyd) og svaralternativer. Alt lagres automatisk.
 3. Trykk **▶ Start**. Storskjermen viser en QR-kode og en PIN.
 4. Trykk **Start** når elevene er med. Trykk **Neste** (eller mellomromstasten) for å gå videre.
@@ -37,7 +37,7 @@ Kwest er testet med 60 elever i samme spill.
 | Rekkefølge | Trykker alternativene i riktig rekkefølge |
 | Infoside | Bare tekst og bilde – til introduksjon eller oppsummering |
 
-Andre funksjoner: lyd på spørsmål og infosider (lenke eller opplastet .mp3/.wav), kopiere kollegers Kwester til sine egne, nedlasting av resultater, poengtavle mellom spørsmålene, «riktige på rad», dobbel poeng, stokking av svaralternativer, låsing av spillet, fjerne elever, fullskjerm, norsk og engelsk.
+Andre funksjoner: lyd på spørsmål og infosider (lenke eller opplastet .mp3/.wav), kopiere kollegers kwest til sine egne, nedlasting av resultater, poengtavle mellom spørsmålene, «riktige på rad», dobbel poeng, stokking av svaralternativer, låsing av spillet, fjerne elever, fullskjerm, norsk og engelsk.
 
 ## Lage Kwest med AI (fra PowerPoint, PDF, artikler)
 

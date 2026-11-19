@@ -1,4 +1,4 @@
-// Lærersiden: innlogging, oversikt over Kwester, redigering, import/AI og brukeradministrasjon.
+// Lærersiden: innlogging, oversikt over kwest, redigering, import/AI og brukeradministrasjon.
 import { h, svg, clear, debounce, modal, confirmBox, toast, readImage, download, copyText, fmtDate, baseUrl, uid } from './util.js';
 import { t, lang, langButton } from './i18n.js';
 import { backend } from './backend.js';

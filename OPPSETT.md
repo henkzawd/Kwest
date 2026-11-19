@@ -4,7 +4,7 @@ Du trenger bare å gjøre dette **én gang**. Det tar ca. 15 minutter. Alt er gr
 
 Kwest består av to deler:
 - **Nettsiden** (det elevene og lærerne åpner) – ligger gratis hos Vercel.
-- **Databasen** (der Kwester og lærerkontoer lagres) – ligger gratis hos Supabase.
+- **Databasen** (der kwest og lærerkontoer lagres) – ligger gratis hos Supabase.
 
 ---
 

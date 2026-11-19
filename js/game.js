@@ -38,7 +38,7 @@ export function emptyQuiz() {
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v !== null ? Number(v) : d);
 const str = v => (v === null || v === undefined ? '' : String(v)).trim();
 
-// Gjør om alt som ligner på en Kwest (eget format eller AI-svar) til riktig format.
+// Gjør om alt som ligner på et kwest (eget format eller AI-svar) til riktig format.
 export function normalizeQuiz(raw) {
   if (typeof raw === 'string') {
     const s = raw.trim();

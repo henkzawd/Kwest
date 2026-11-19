@@ -190,7 +190,7 @@ function demoBackend() {
       const bc = new BroadcastChannel('kwest-' + topic);
       return { async send(event, payload) { bc.postMessage({ event, payload }); } };
     },
-    // Demo: filen lagres rett i Kwesten (bare små filer, nettleseren har lite plass).
+    // Demo: filen lagres rett i kwestet (bare små filer, nettleseren har lite plass).
     async uploadMedia(blob) {
       if (blob.size > 2_000_000) throw new Error('Filen er for stor for demo-modus (maks 2 MB)');
       return new Promise((resolve, reject) => {
