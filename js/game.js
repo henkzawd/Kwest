@@ -2,11 +2,12 @@
 import { uid, normText, levenshtein } from './util.js';
 
 export const COLORS = ['#D62839', '#1F5FD1', '#1E8B3A', '#7A3BD9'];
+// Eventyr-symboler: fjell, kompass, ryggsekk og veiskilt.
 export const SHAPES = [
-  '<svg viewBox="0 0 20 20"><polygon points="10,2 19,18 1,18" fill="currentColor"/></svg>',
-  '<svg viewBox="0 0 20 20"><polygon points="10,1 19,10 10,19 1,10" fill="currentColor"/></svg>',
-  '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.5" fill="currentColor"/></svg>',
-  '<svg viewBox="0 0 20 20"><rect x="2" y="2" width="16" height="16" rx="1.5" fill="currentColor"/></svg>',
+  '<svg viewBox="0 0 20 20"><path fill="currentColor" d="M.6 17.6 7.2 5.4l3.3 6 2.6-3.9 6.3 10.1z"/><path fill="#fff" opacity=".55" d="M7.2 5.4 9.1 8.9 7.9 8.3 6.8 9.5 5.6 8.3z"/></svg>',
+  '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path fill="currentColor" d="M14.8 5.2 11.3 11.3 5.2 14.8 8.7 8.7z"/><circle cx="10" cy="10" r="1.3" fill="#fff" opacity=".6"/></svg>',
+  '<svg viewBox="0 0 20 20"><path fill="currentColor" d="M7.2 5V4a2.8 2.8 0 0 1 5.6 0v1h-1.7V4a1.1 1.1 0 0 0-2.2 0v1z"/><path fill="currentColor" fill-rule="evenodd" d="M7 5h6a4 4 0 0 1 4 4v7.2a2.3 2.3 0 0 1-2.3 2.3H5.3A2.3 2.3 0 0 1 3 16.2V9a4 4 0 0 1 4-4zm-.5 7.2a1 1 0 0 0-1 1v2.6a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-2.6a1 1 0 0 0-1-1z"/></svg>',
+  '<svg viewBox="0 0 20 20"><rect x="9" y="1.5" width="2.2" height="17.5" rx=".8" fill="currentColor"/><path fill="currentColor" d="M2.5 3.6h10.6l3 2.4-3 2.4H2.5z"/><path fill="currentColor" d="M17.6 10.2H7l-3 2.4 3 2.4h10.6z"/></svg>',
 ];
 
 // Rekkefølgen her er rekkefølgen i «Nytt spørsmål»-menyen.
@@ -16,7 +17,7 @@ export const TIMES = [5, 10, 20, 30, 45, 60, 90, 120, 240];
 export const SCORED = ['quiz', 'truefalse', 'short', 'slider', 'order'];
 
 export function newQuestion(type = 'quiz') {
-  const q = { id: uid(8), type, text: '', image: '', time: 20, points: 'standard' };
+  const q = { id: uid(8), type, text: '', image: '', audio: '', autoplay: true, time: 20, points: 'standard' };
   switch (type) {
     case 'quiz': q.options = [{ text: '', correct: true }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }]; break;
     case 'truefalse': q.tf = true; q.time = 10; break;
@@ -75,6 +76,8 @@ export function normalizeQuestion(r) {
   const q = newQuestion(type);
   q.text = str(r.text ?? r.question ?? r.title);
   q.image = typeof r.image === 'string' && /^(data:image\/|https:\/\/)/.test(r.image) ? r.image : '';
+  q.audio = typeof r.audio === 'string' && /^(data:audio\/|https:\/\/)/.test(r.audio) ? r.audio : '';
+  q.autoplay = r.autoplay !== false;
   if (r.time !== undefined || r.timeLimit !== undefined) q.time = Math.max(0, Math.min(600, Math.round(num(r.time ?? r.timeLimit, q.time))));
   if (['standard', 'double', 'none'].includes(r.points)) q.points = r.points;
   if (type === 'quiz' || type === 'poll') {
@@ -136,7 +139,7 @@ export function validateQuiz(quiz) {
   const issues = [];
   quiz.questions.forEach((q, i) => {
     const add = key => issues.push({ index: i, key });
-    if (!q.text.trim() && !q.image && q.type !== 'info') add('val.noText');
+    if (!q.text.trim() && !q.image && !q.audio && q.type !== 'info') add('val.noText');
     if (q.type === 'quiz') {
       const filled = q.options.filter(o => o.text.trim());
       if (filled.length < 2) add('val.twoOptions');

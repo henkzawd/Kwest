@@ -65,6 +65,20 @@ try {
   step('Importerte Kwest via AI-dialogen');
   await teacher.locator('.qitem').nth(5).click();
   await shot(teacher, '05-editor-slider');
+  // Lydfil på flervalgsspørsmålet (en kort WAV laget her)
+  await teacher.locator('.qitem').nth(2).click();
+  const wav = (() => {
+    const n = 8000, b = Buffer.alloc(44 + n);
+    b.write('RIFF', 0); b.writeUInt32LE(36 + n, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+    b.writeUInt32LE(8000, 24); b.writeUInt32LE(8000, 28); b.writeUInt16LE(1, 32); b.writeUInt16LE(8, 34); b.write('data', 36); b.writeUInt32LE(n, 40);
+    for (let i = 0; i < n; i++) b[44 + i] = 128 + Math.round(60 * Math.sin(i / 8));
+    return b;
+  })();
+  await teacher.locator('.audio-add input[type=file]').setInputFiles({ name: 'hjertelyd.wav', mimeType: 'audio/wav', buffer: wav });
+  await teacher.locator('.audio-edit audio').waitFor();
+  await teacher.waitForTimeout(1500);
+  await shot(teacher, '05b-editor-lyd');
+  step('La til lydfil');
 
   // Start spillet
   await teacher.getByRole('button', { name: '▶ Start' }).click();
@@ -83,7 +97,7 @@ try {
   await shot(p1, '06-mobil-navn');
   await p1.getByPlaceholder('Skriv navnet ditt').fill('Ola');
   await p1.getByRole('button', { name: 'Bli med!' }).click();
-  await p1.getByText('Du er med!').waitFor();
+  await p1.getByText('Du er med i Kwesten!').waitFor();
   // Elev 2 skriver PIN selv
   await p2.goto(URL0);
   await p2.getByPlaceholder('123456').fill(pin);
@@ -93,7 +107,7 @@ try {
   await p2.getByText('Navnet er allerede tatt').waitFor();
   await p2.getByPlaceholder('Skriv navnet ditt').fill('Kari');
   await p2.getByRole('button', { name: 'Bli med!' }).click();
-  await p2.getByText('Du er med!').waitFor();
+  await p2.getByText('Du er med i Kwesten!').waitFor();
   await host.locator('.chip').nth(1).waitFor();
   await shot(host, '07-lobby');
   await shot(p1, '08-mobil-lobby');
@@ -125,6 +139,7 @@ try {
   await p1.locator('.pbtn').nth(0).waitFor();
   await shot(host, '11-sporsmal');
   await shot(p1, '12-mobil-svar');
+  if (!(await host.locator('.audio-box audio').count())) throw new Error('Mangler lyd på storskjermen');
   await p1.locator('.pbtn', { hasText: '4' }).click();
   await p2.locator('.pbtn', { hasText: '2' }).click();
   await host.locator('.tiles.revealed').waitFor();
@@ -196,6 +211,10 @@ try {
   await p1.getByText('Du kom på 1. plass').waitFor();
   await p2.getByText('Du kom på 2. plass').waitFor();
   await shot(p1, '23-mobil-ferdig');
+  const [dl] = await Promise.all([host.waitForEvent('download'), host.getByRole('button', { name: /Last ned resultater/ }).click()]);
+  const csv = readFileSync(await dl.path(), 'utf8');
+  if (!csv.includes('Ola') || !csv.includes('Plass;Navn;Poeng') || !csv.includes('Hudenn (✓')) throw new Error('Feil i resultatfil:\n' + csv);
+  step('Resultatfil lastet ned: ' + csv.split('\n')[1].slice(0, 80));
   step('Spillet gikk gjennom alle 8 typer, Ola vant');
 
   // Engelsk

@@ -2,7 +2,7 @@
 
 Kwest er en quiz-app for undervisning, i samme stil som Kahoot. Læreren viser spørsmålene på storskjerm, og elevene svarer på mobilen.
 
-**Nettside:** https://henkzawd.github.io/Kwest/ (elever) · https://henkzawd.github.io/Kwest/laerer.html (lærere)
+**Nettside:** https://kwest.vercel.app/ (elever) · https://kwest.vercel.app/laerer.html (lærere)
 
 Første gang: følg [OPPSETT.md](OPPSETT.md).
 
@@ -10,17 +10,19 @@ Første gang: følg [OPPSETT.md](OPPSETT.md).
 
 **For læreren**
 1. Logg inn på lærersiden og trykk **Ny Kwest** (eller **Lag med AI** / **Importer**).
-2. Legg til spørsmål. Hvert spørsmål kan ha tekst, bilde og svaralternativer. Alt lagres automatisk.
+2. Legg til spørsmål. Hvert spørsmål kan ha tekst, bilde, lyd (f.eks. en hjertelyd) og svaralternativer. Alt lagres automatisk.
 3. Trykk **▶ Start**. Storskjermen viser en QR-kode og en PIN.
 4. Trykk **Start** når elevene er med. Trykk **Neste** (eller mellomromstasten) for å gå videre.
-5. Til slutt vises **pallen** med vinneren.
+5. Til slutt vises **pallen** med vinneren. Her kan du også **laste ned resultatene** (åpnes i Excel).
 
 **For eleven**
 1. Skann QR-koden (eller gå til nettsiden og skriv PIN-en).
 2. Skriv et kallenavn og trykk **Bli med!**
-3. Trykk på den fargen som har riktig svar. Raske riktige svar gir flest poeng.
+3. Trykk på feltet med riktig svar (fargene har hvert sitt eventyrsymbol: fjell, kompass, ryggsekk og veiskilt). Raske riktige svar gir flest poeng.
 
-Navnene til elevene lagres ikke noe sted – de forsvinner når spillet er over.
+Navnene til elevene lagres ikke noe sted – de forsvinner når spillet er over (med mindre læreren selv laster ned resultatene).
+
+Kwest er testet med 60 elever i samme spill.
 
 ## Spørsmålstyper
 
@@ -35,7 +37,7 @@ Navnene til elevene lagres ikke noe sted – de forsvinner når spillet er over.
 | Rekkefølge | Trykker alternativene i riktig rekkefølge |
 | Infoside | Bare tekst og bilde – til introduksjon eller oppsummering |
 
-Andre funksjoner: poengtavle mellom spørsmålene, «riktige på rad», dobbel poeng, stokking av svaralternativer, låsing av spillet, fjerne elever, fullskjerm, norsk og engelsk.
+Andre funksjoner: lyd på spørsmål og infosider (lenke eller opplastet .mp3/.wav), kopiere kollegers Kwester til sine egne, nedlasting av resultater, poengtavle mellom spørsmålene, «riktige på rad», dobbel poeng, stokking av svaralternativer, låsing av spillet, fjerne elever, fullskjerm, norsk og engelsk.
 
 ## Lage Kwest med AI (fra PowerPoint, PDF, artikler)
 

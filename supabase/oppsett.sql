@@ -86,3 +86,12 @@ create policy "quizzes_delete" on public.quizzes for delete to authenticated
 
 grant select, update on public.profiles to authenticated;
 grant select, insert, update, delete on public.quizzes to authenticated;
+
+-- Fillager for bilder og lyd (offentlig lesbart, bare godkjente lærere kan laste opp).
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('media', 'media', true, 20971520, array['image/*', 'audio/*'])
+on conflict (id) do update set public = true, file_size_limit = 20971520, allowed_mime_types = array['image/*', 'audio/*'];
+
+drop policy if exists "media_upload" on storage.objects;
+create policy "media_upload" on storage.objects for insert to authenticated
+  with check (bucket_id = 'media' and public.is_approved());

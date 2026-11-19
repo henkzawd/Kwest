@@ -426,7 +426,7 @@ function drawPanel() {
 
   const changeType = type => {
     const fresh = newQuestion(type);
-    fresh.id = q.id; fresh.text = q.text; fresh.image = q.image;
+    fresh.id = q.id; fresh.text = q.text; fresh.image = q.image; fresh.audio = q.audio; fresh.autoplay = q.autoplay;
     if (type !== 'info' && q.type !== 'info' && q.time) fresh.time = q.time;
     // Ta med svaralternativene der det gir mening.
     const texts = q.options ? q.options.map(o => o.text) : q.items ? q.items : null;
@@ -461,6 +461,7 @@ function drawPanel() {
     h('div', { class: 'q-slide' },
       h('div', { class: 'q-slide-head' }, h('span', { class: 'q-mark' }, q.type === 'info' ? exclamationSvg(40) : questionSvg(40)), text),
       imageBox(q, ro),
+      audioBox(q, ro),
       typeEditor(q, ro, rerender)));
 
   const issues = validateQuiz(E.quiz).filter(x => x.index === E.sel);
@@ -494,19 +495,71 @@ function imageBox(q, ro) {
 
 async function setImage(q, file) {
   try {
-    const url = await readImage(file);
-    if (url.length > 1_500_000) return toast(t('ed.tooBig'), 'bad');
-    q.image = url;
+    const dataUrl = await readImage(file);
+    if (backend.mode === 'demo' && dataUrl.length > 1_500_000) return toast(t('ed.tooBig'), 'bad');
+    toast(t('ed.uploading'));
+    const blob = await (await fetch(dataUrl)).blob();
+    q.image = await backend.uploadMedia(blob, blob.type === 'image/png' ? 'png' : 'jpg');
     changed(); drawList(); drawPanel();
   } catch (e) { toast(errMsg(e), 'bad'); }
 }
 
-// Lim inn bilde fra utklippstavlen i redigeringen.
+const AUDIO_EXT = /\.(mp3|wav|m4a|aac|ogg|oga|webm|flac)$/i;
+function isAudio(f) { return f && (f.type.startsWith('audio/') || AUDIO_EXT.test(f.name || '')); }
+
+async function setAudio(q, file) {
+  try {
+    if (!isAudio(file)) return toast(t('ed.notAudio'), 'bad');
+    if (file.size > 20_000_000) return toast(t('ed.audioTooBig'), 'bad');
+    toast(t('ed.uploading'));
+    const ext = (file.name.match(AUDIO_EXT)?.[1] || (file.type.split('/')[1] || 'mp3').replace('mpeg', 'mp3')).toLowerCase();
+    q.audio = await backend.uploadMedia(file, ext);
+    changed(); drawList(); drawPanel();
+  } catch (e) { toast(errMsg(e), 'bad'); }
+}
+
+// Lim inn bilde eller lydfil fra utklippstavlen i redigeringen.
 document.addEventListener('paste', e => {
   if (!document.querySelector('.ed-panel') || E.readonly) return;
-  const file = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
-  if (file) { e.preventDefault(); setImage(E.quiz.questions[E.sel], file); }
+  const files = [...(e.clipboardData?.files || [])];
+  const img = files.find(f => f.type.startsWith('image/'));
+  const snd = files.find(isAudio);
+  if (snd) { e.preventDefault(); setAudio(E.quiz.questions[E.sel], snd); }
+  else if (img) { e.preventDefault(); setImage(E.quiz.questions[E.sel], img); }
 });
+
+function audioBox(q, ro) {
+  if (q.audio) {
+    const warn = h('p', { class: 'form-error' });
+    const player = h('audio', { src: q.audio, controls: true, preload: 'metadata', onerror: () => { warn.textContent = t('ed.audioBroken'); } });
+    return h('div', { class: 'audio-edit' },
+      h('span', { class: 'audio-icon' }, '🔊'),
+      h('div', { class: 'grow stack' }, player, warn,
+        h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.autoplay !== false, disabled: ro, onchange: e => { q.autoplay = e.target.checked; changed(); } }), t('ed.autoplay'))),
+      ro ? null : h('button', { class: 'btn ghost small', onclick: () => { q.audio = ''; changed(); drawPanel(); } }, t('ed.removeAudio')));
+  }
+  if (ro) return null;
+  const file = h('input', { type: 'file', accept: 'audio/*,.mp3,.wav,.m4a,.ogg', class: 'hidden', onchange: () => file.files[0] && setAudio(q, file.files[0]) });
+  const url = h('input', { type: 'url', placeholder: t('ed.audioUrlPh') });
+  const useUrl = () => {
+    const v = url.value.trim();
+    if (!/^https:\/\//i.test(v)) return toast(t('ed.audioUrlBad'), 'bad');
+    q.audio = v; changed(); drawPanel();
+  };
+  url.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); useUrl(); } });
+  const box = h('div', { class: 'audio-add',
+    ondragover: e => { e.preventDefault(); box.classList.add('drag'); },
+    ondragleave: () => box.classList.remove('drag'),
+    ondrop: e => { e.preventDefault(); box.classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) setAudio(q, f); },
+  },
+    h('span', { class: 'audio-icon' }, '🔊'),
+    h('div', { class: 'grow stack' },
+      h('b', null, t('ed.audio')),
+      h('div', { class: 'row' }, url, h('button', { class: 'btn ghost small', onclick: useUrl }, t('ed.useUrl')),
+        h('button', { class: 'btn ghost small', onclick: () => file.click() }, t('ed.uploadAudio'))),
+      h('small', { class: 'muted' }, t('ed.audioHint'))), file);
+  return box;
+}
 
 function optionTile(i, type, content, extra) {
   const ci = colorIndex(type, i);

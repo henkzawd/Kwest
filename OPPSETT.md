@@ -3,21 +3,29 @@
 Du trenger bare å gjøre dette **én gang**. Det tar ca. 15 minutter. Alt er gratis.
 
 Kwest består av to deler:
-- **Nettsiden** (det elevene og lærerne åpner) – ligger gratis på GitHub.
+- **Nettsiden** (det elevene og lærerne åpner) – ligger gratis hos Vercel.
 - **Databasen** (der Kwester og lærerkontoer lagres) – ligger gratis hos Supabase.
 
 ---
 
-## Del 1 – Slå på nettsiden (GitHub Pages)
+## Del 1 – Publiser nettsiden (Vercel)
 
-1. Gå til https://github.com/henkzawd/Kwest
-2. Trykk **Settings** (tannhjulet øverst til høyre i repoet).
-3. Trykk **Pages** i menyen til venstre.
-4. Under **Build and deployment** → **Source**: velg **GitHub Actions**.
-5. Ferdig. Si fra til Claude, så publiserer Claude nettsiden.
+1. Gå til https://vercel.com og logg inn (bruk **Continue with GitHub**).
+2. Trykk **Add New…** → **Project**.
+3. Finn **Kwest** i listen og trykk **Import**.
+   - Ser du den ikke: trykk **Adjust GitHub App Permissions** (eller *Configure GitHub App*) og gi Vercel tilgang til repoet `Kwest`.
+4. På neste side:
+   - **Project Name:** skriv `kwest` (det er dette som gir adressen *kwest.vercel.app*).
+   - **Framework Preset:** velg **Other**.
+   - Ikke endre noe annet. Trykk **Deploy**.
+5. Når den er ferdig, trykk **Continue to Dashboard** og se hvilken adresse som står under **Domains**.
+   - Står det `kwest.vercel.app`: perfekt.
+   - Står det noe annet (f.eks. `kwest-abc123.vercel.app`), er navnet tatt av noen andre. Gå til **Settings** → **Domains**, trykk **Edit** på adressen og prøv `kwest.vercel.app`. Er den opptatt, velg f.eks. `kwest-ous.vercel.app` og si fra til Claude hvilken du fikk.
 
-Nettsiden blir da: **https://henkzawd.github.io/Kwest/**
-Lærersiden blir: **https://henkzawd.github.io/Kwest/laerer.html**
+Vercel publiserer automatisk på nytt hver gang Claude oppdaterer hovedversjonen (main).
+
+Nettsiden blir: **https://kwest.vercel.app/**
+Lærersiden blir: **https://kwest.vercel.app/laerer.html**
 
 ---
 
@@ -38,7 +46,7 @@ Lærersiden blir: **https://henkzawd.github.io/Kwest/laerer.html**
    - Slå av **Confirm email** og trykk **Save**.
 5. **Fortell Supabase hvor nettsiden ligger:**
    - **Authentication** → **URL Configuration**.
-   - Skriv inn `https://henkzawd.github.io/Kwest/laerer.html` i **Site URL** og trykk **Save**.
+   - Skriv inn `https://kwest.vercel.app/laerer.html` i **Site URL** og trykk **Save**.
 6. **Hent de to tilkoblingsverdiene:**
    - Trykk **Connect** øverst på prosjektsiden (eller **Project Settings** → **API Keys**).
    - Kopier **Project URL** (ser ut som `https://abcdefgh.supabase.co`).
@@ -48,16 +56,19 @@ Lærersiden blir: **https://henkzawd.github.io/Kwest/laerer.html**
 
 Claude legger verdiene inn i Kwest og publiserer på nytt.
 
+(Kjørte du `oppsett.sql` før lyd og bilder ble lagt til, kjør hele filen én gang til – det er trygt.)
+
 ---
 
 ## Del 3 – Første innlogging
 
-1. Gå til **https://henkzawd.github.io/Kwest/laerer.html**
+1. Gå til **https://kwest.vercel.app/laerer.html**
 2. Trykk **Lag konto** og lag kontoen din. **Den første kontoen blir automatisk administrator.**
 3. Inviter kolleger: gå til fanen **Brukere**, kopier lenken og send den til dem. Når de har laget konto, huker du av **Godkjent** ved navnet deres.
 
 ## Godt å vite
 
 - **Glemt passord:** Supabase sin gratis e-post sender bare til deg selv. Glemmer en kollega passordet, kan du slette brukeren i Supabase (**Authentication** → **Users** → de tre prikkene → *Delete user*), og så lager kollegaen ny konto. Kwestene deres blir liggende (uten navn på). Vil dere ha ordentlig «glemt passord»-e-post, kan Claude hjelpe med å koble til en e-posttjeneste senere.
-- **Hvor mange elever:** Gratisversjonen av Supabase tåler rundt 200 samtidige tilkoblinger – mer enn nok for et klasserom eller en forelesning.
+- **Hvor mange elever:** Kwest er testet med 60 samtidige elever og holder seg innenfor gratisgrensene til Supabase (200 tilkoblinger og 100 meldinger i sekundet). Skal dere over ca. 80–100 elever i samme spill, si fra til Claude først.
+- **Plass til bilder og lyd:** 1 GB gratis – det rekker til tusenvis av bilder og lydklipp.
 - **Gratisprosjekter som ikke brukes på 7 dager** settes på pause av Supabase. Da logger du inn på supabase.com og trykker **Restore project**. Ingenting går tapt.

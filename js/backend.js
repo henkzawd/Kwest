@@ -72,6 +72,18 @@ function supabaseBackend() {
         close() { client.removeChannel(ch); },
       };
     },
+    // Sender til en kanal uten å lytte på den (elevene sender svar rett til læreren).
+    // Da går ikke svarene ut til alle de andre elevene, og vi holder oss godt innenfor gratisgrensene.
+    inbox(topic) {
+      const ch = client.channel('kwest-' + topic, { config: { broadcast: { self: false, ack: false } } });
+      return { send(event, payload) { return ch.httpSend(event, payload).catch(() => null); } };
+    },
+    // Laster opp bilde/lyd til fillageret og gir tilbake en offentlig lenke.
+    async uploadMedia(blob, ext) {
+      const path = `${new Date().toISOString().slice(0, 7)}/${uid(16)}.${ext}`;
+      ok(await client.storage.from('media').upload(path, blob, { contentType: blob.type || undefined, cacheControl: '31536000' }));
+      return client.storage.from('media').getPublicUrl(path).data.publicUrl;
+    },
   };
 }
 
@@ -162,6 +174,20 @@ function demoBackend() {
         async send(event, payload) { bc.postMessage({ event, payload }); },
         close() { bc.close(); },
       };
+    },
+    inbox(topic) {
+      const bc = new BroadcastChannel('kwest-' + topic);
+      return { async send(event, payload) { bc.postMessage({ event, payload }); } };
+    },
+    // Demo: filen lagres rett i Kwesten (bare små filer, nettleseren har lite plass).
+    async uploadMedia(blob) {
+      if (blob.size > 2_000_000) throw new Error('Filen er for stor for demo-modus (maks 2 MB)');
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(blob);
+      });
     },
   };
 }

@@ -3,7 +3,7 @@ import { h, svg, clear, uid, qs, baseUrl } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { COLORS, SHAPES, colorIndex } from './game.js';
-import { wordmark, questionSvg, setFavicon } from './logo.js';
+import { wordmark, questionSvg, exclamationSvg, landscape, setFavicon } from './logo.js';
 
 setFavicon();
 const app = document.getElementById('app');
@@ -30,8 +30,9 @@ function frame(content, opts = {}) {
         h('span', { class: 'pbar-name' }, S.name),
         S.lost ? h('span', { class: 'pbar-lost' }, t('play.lost')) : null,
         h('span', { class: 'pbar-score' }, t('play.score', { n: S.score })))
-    : h('header', { class: 'ptop' }, wordmark(34), langButton(rerender));
+    : h('header', { class: 'ptop' }, opts.hero ? h('span') : wordmark(34), langButton(rerender));
   app.append(top, h('main', { class: 'pmain ' + (opts.cls || '') }, content));
+  if (!opts.bar) app.append(h('div', { class: 'landscape', 'aria-hidden': 'true' }, landscape()));
 }
 
 // ---------- Bli med ----------
@@ -58,13 +59,14 @@ function joinView(error = '') {
     }
   };
   frame(h('div', { class: 'join-card' },
+    h('div', { class: 'hero' }, exclamationSvg(96), h('span', { class: 'hero-name' }, 'Kwest')),
     !needPin ? h('button', { class: 'pin-chip', type: 'button', onclick: () => { S.pin = ''; joinView(); } }, t('join.pin') + ': ' + S.pin + ' ✎') : null,
     h('form', { onsubmit: submit, class: 'join-form' },
       h('label', { class: 'join-label' }, needPin ? t('join.pin') : t('join.name')),
       input,
       msg,
       h('button', { class: 'btn primary huge', type: 'submit' }, needPin ? t('join.next') : t('join.go'))),
-    h('a', { class: 'teacher-link', href: 'laerer.html' }, t('join.teacher'))), { cls: 'center' });
+    h('a', { class: 'teacher-link', href: 'laerer.html' }, t('join.teacher'))), { cls: 'center', hero: true });
   setTimeout(() => input.focus(), 50);
 }
 
@@ -84,12 +86,16 @@ function connect() {
   if (S.ch) S.ch.close();
   const ch = backend.channel(S.pin);
   S.ch = ch;
+  S.inbox = backend.inbox(S.pin + '-inn');
   let notFoundTimer = setTimeout(() => {
     if (!S.joined) { S.ch?.close(); S.ch = null; S.pin = ''; sessionStorage.removeItem('kwest-player'); joinView(t('join.notFound')); }
   }, 6000);
 
-  ch.on('joined', p => {
-    if (p.id !== S.id) return;
+  // Storskjermen sender én samlet melding: status for spillet + svar til de som nettopp ble med.
+  ch.on('state', msg => {
+    const p = msg.replies?.[S.id];
+    if (!p) { if (S.joined) onState(msg); return; }
+    p.state = msg;
     clearTimeout(notFoundTimer);
     if (!p.ok) {
       ch.close(); S.ch = null; S.joined = false;
@@ -102,10 +108,8 @@ function connect() {
     if (p.answered && p.state) S.answeredQi = p.state.qi;
     sessionStorage.setItem('kwest-player', JSON.stringify({ pin: S.pin, name: S.name, id: S.id }));
     keepAwake();
-    if (p.state) onState(p.state);
-    else lobby();
+    onState(p.state);
   });
-  ch.on('state', onState);
   ch.on('kick', p => {
     if (p.id !== S.id) return;
     leave();
@@ -119,7 +123,7 @@ function connect() {
   ch.subscribe(status => {
     if (status === 'SUBSCRIBED') {
       S.lost = false;
-      ch.send('join', { id: S.id, name: S.name });
+      S.inbox.send('join', { id: S.id, name: S.name });
       if (S.joined) rerender();
     } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
       if (S.joined && S.ch === ch) { S.lost = true; rerender(); }
@@ -143,25 +147,36 @@ async function keepAwake() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && S.joined) {
     keepAwake();
-    S.ch?.send('join', { id: S.id, name: S.name }); // be om oppdatert status
+    S.inbox?.send('join', { id: S.id, name: S.name }); // be om oppdatert status
   }
 });
 
 function lobby() {
-  message(() => t('join.youreIn'), () => t('join.seeName'), { icon: h('div', { class: 'big-mark' }, questionSvg(110)), cls: 'lobby' });
+  S.view = lobby;
+  frame(h('div', { class: 'pmsg lobby' },
+    h('div', { class: 'big-mark' }, exclamationSvg(110)),
+    h('div', { class: 'banner' }, S.name),
+    h('h1', null, t('join.youreIn')),
+    h('p', null, t('join.seeName'))), { cls: 'center' });
 }
 
 // ---------- Spillet ----------
 function onState(st) {
+  // Samme lobby-status på nytt (fordi andre ble med) – ikke tegn skjermen på nytt.
+  if (st.phase === 'lobby' && S.state?.phase === 'lobby' && S.view === lobby) { S.state = st; return; }
   const prevQi = S.state?.qi;
   S.state = st;
   if (st.qi !== prevQi && st.phase !== 'reveal') S.myAnswer = null;
   const me = st.results?.[S.id];
   if (me) S.score = me.score;
   clearInterval(S.timer);
+  clearTimeout(S.introTimer);
   switch (st.phase) {
     case 'lobby': return lobby();
-    case 'intro': return message(() => t('play.getReady'), () => t('play.question', { n: st.qi + 1, total: st.total }), { icon: h('div', { class: 'big-mark pulse' }, questionSvg(110)) });
+    case 'intro':
+      // Spørsmålet starter av seg selv når «Gjør deg klar» er ferdig (sparer en melding per spørsmål).
+      if (st.q) S.introTimer = setTimeout(() => { if (S.state === st) onState({ ...st, phase: 'question' }); }, st.startsIn || 0);
+      return message(() => t('play.getReady'), () => t('play.question', { n: st.qi + 1, total: st.total }), { icon: h('div', { class: 'big-mark pulse' }, questionSvg(110)) });
     case 'info': return message(() => t('play.lookScreen'), null, { icon: h('div', { class: 'big-mark' }, questionSvg(90)) });
     case 'question':
       if (S.answeredQi === st.qi) return sent();
@@ -176,7 +191,7 @@ function sendAnswer(value) {
   if (S.answeredQi === S.state.qi) return;
   S.answeredQi = S.state.qi;
   S.myAnswer = value;
-  S.ch?.send('answer', { id: S.id, qi: S.state.qi, value });
+  S.inbox?.send('answer', { id: S.id, qi: S.state.qi, value });
   if (navigator.vibrate) navigator.vibrate(30);
   sent();
 }
@@ -279,7 +294,7 @@ function finalView(st) {
   const medal = r && r.rank <= 3 ? ['🥇', '🥈', '🥉'][r.rank - 1] : null;
   frame(h('div', { class: 'pmsg final' },
     medal ? h('div', { class: 'medal' }, medal) : h('div', { class: 'big-mark' }, questionSvg(100)),
-    h('h1', null, t('play.final')),
+    h('div', { class: 'banner' }, t('play.final')),
     r ? h('p', { class: 'final-place' }, t('play.finalPlace', { n: r.rank })) : null,
     r ? h('p', null, t('play.finalScore', { n: r.score })) : null,
     againButton()), { bar: true, cls: 'center' });

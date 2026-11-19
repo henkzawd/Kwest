@@ -13,6 +13,10 @@ const INTRO_MS = 3000;
 
 let quiz = null;
 let ch = null;
+let inn = null;
+let rosterTimer = null;
+let allInTimer = null;
+const rosterQueue = {};
 let tick = null;
 let introTimer = null;
 const shownChips = new Set();
@@ -51,10 +55,12 @@ async function init() {
   } catch { /* ignorer */ }
   if (!G.pin) G.pin = makePin();
 
+  // To kanaler: «ut» (læreren → alle elever) og «inn» (elever → bare læreren).
   ch = backend.channel(G.pin);
-  ch.on('join', onJoin);
-  ch.on('answer', onAnswer);
-  await ch.subscribe();
+  inn = backend.channel(G.pin + '-inn');
+  inn.on('join', onJoin);
+  inn.on('answer', onAnswer);
+  await Promise.all([ch.subscribe(), inn.subscribe()]);
   if (restored) {
     toast(t('host.restore'));
     if (G.phase === 'question') {
@@ -84,18 +90,47 @@ function onJoin(p) {
   const name = String(p.name || '').replace(/\s+/g, ' ').trim().slice(0, 15);
   if (!id || !name) return;
   const existing = G.players[id];
-  if (existing) {
-    ch.send('joined', { id, ok: true, score: existing.score, state: statePayload(), answered: !!G.answers[id] });
-    return;
-  }
-  if (G.locked) return ch.send('joined', { id, ok: false, error: 'locked' });
-  if (Object.values(G.players).some(pl => pl.name.toLowerCase() === name.toLowerCase())) {
-    return ch.send('joined', { id, ok: false, error: 'taken' });
-  }
-  G.players[id] = { name, score: 0, streak: 0, ok: null, pts: 0, answered: false, joinedAt: Date.now() };
-  ch.send('joined', { id, ok: true, score: 0, state: statePayload() });
+  if (existing) return reply(id, { ok: true, score: existing.score, answered: !!G.answers[id] });
+  if (G.locked) return reply(id, { ok: false, error: 'locked' });
+  if (Object.values(G.players).some(pl => pl.name.toLowerCase() === name.toLowerCase())) return reply(id, { ok: false, error: 'taken' });
+  G.players[id] = { name, score: 0, streak: 0, ok: null, pts: 0, answered: false, joinedAt: Date.now(), history: {} };
+  reply(id, { ok: true, score: 0 });
   persist();
   if (G.phase === 'lobby') renderLobby(); else updateCount();
+}
+
+// Alt som går fra storskjermen til mobilene samles i én melding, maks omtrent én gang i sekundet.
+// Hver melding leveres til alle elevene, så dette holder oss trygt under Supabase sin grense
+// (100 meldinger i sekundet på gratisplanen) også med 50–60 elever.
+const OUT_GAP = 1100;      // minste avstand mellom meldinger til alle
+const JOIN_BATCH = 2000;   // svar på «bli med» samles i opptil 2 sekunder
+let lastOut = 0, outAt = 0, statePending = false;
+
+function reply(id, r) {
+  rosterQueue[id] = r;
+  scheduleOut(Math.max(lastOut + JOIN_BATCH, Date.now() + 600));
+}
+
+function broadcast() {
+  statePending = true;
+  scheduleOut(Math.max(lastOut + OUT_GAP, Date.now()));
+}
+
+function scheduleOut(at) {
+  if (rosterTimer && outAt <= at) return;
+  clearTimeout(rosterTimer);
+  outAt = at;
+  rosterTimer = setTimeout(flushOut, Math.max(0, at - Date.now()));
+}
+
+function flushOut() {
+  rosterTimer = null;
+  const replies = { ...rosterQueue };
+  for (const k of Object.keys(rosterQueue)) delete rosterQueue[k];
+  if (!statePending && !Object.keys(replies).length) return;
+  statePending = false;
+  lastOut = Date.now();
+  ch?.send('state', { ...statePayload(), replies });
 }
 
 function onAnswer(p) {
@@ -103,7 +138,8 @@ function onAnswer(p) {
   G.answers[p.id] = { value: p.value, t: Date.now() - G.qStart };
   persist();
   updateCount();
-  if (Object.keys(G.answers).length >= Object.keys(G.players).length) reveal();
+  // Alle har svart: vent litt før fasit, så meldingene ikke kommer i samme sekund.
+  if (Object.keys(G.answers).length >= Object.keys(G.players).length && !allInTimer) allInTimer = setTimeout(reveal, 1200);
 }
 
 function kick(id) {
@@ -128,6 +164,11 @@ function ranked() {
 function statePayload() {
   const st = { phase: G.phase, qi: G.qi, total: quiz ? total() : 0 };
   const cur = q();
+  if (G.phase === 'intro' && cur) {
+    st.startsIn = Math.max(0, (G.introEnd || 0) - Date.now());
+    st.remaining = cur.time * 1000;
+    st.q = { type: cur.type, labels: G.labels, maxWords: cur.maxWords, min: cur.min, max: cur.max, step: cur.step, unit: cur.unit };
+  }
   if (G.phase === 'question' && cur) {
     st.remaining = Math.max(0, G.qStart + cur.time * 1000 - Date.now());
     st.q = { type: cur.type, labels: G.labels, maxWords: cur.maxWords, min: cur.min, max: cur.max, step: cur.step, unit: cur.unit };
@@ -140,7 +181,6 @@ function statePayload() {
   return st;
 }
 
-function broadcast() { ch?.send('state', statePayload()); }
 
 // ---------- Gangen i spillet ----------
 function next() {
@@ -149,7 +189,7 @@ function next() {
   const last = G.qi >= total() - 1;
   if (G.phase === 'reveal' && quiz.settings?.leaderboard !== false && !last && SCORED.includes(q().type) && playerIds().length) {
     G.phase = 'scoreboard';
-    return commit();
+    return commit(false); // mobilene viser allerede plasseringen sin
   }
   if (G.phase === 'reveal' || G.phase === 'scoreboard' || G.phase === 'info') {
     return last ? podium() : goTo(G.qi + 1);
@@ -164,13 +204,14 @@ function goTo(i) {
   G.hidden = [];
   const cur = q();
   if (cur.type === 'info') { G.phase = 'info'; return commit(); }
+  prepareQuestion(cur);
   G.phase = 'intro';
-  commit();
+  G.introEnd = Date.now() + INTRO_MS;
+  commit(); // mobilene får spørsmålet nå og starter selv etter «Gjør deg klar»
   introTimer = setTimeout(startQuestion, INTRO_MS);
 }
 
-function startQuestion() {
-  const cur = q();
+function prepareQuestion(cur) {
   let n = 0;
   if (cur.type === 'quiz' || cur.type === 'poll') n = cur.options.length;
   if (cur.type === 'order') n = cur.items.length;
@@ -183,10 +224,15 @@ function startQuestion() {
     G.map = map;
     G.labels = map.map(i => (cur.type === 'order' ? cur.items[i] : cur.options[i].text));
   }
+}
+
+function startQuestion() {
+  clearTimeout(introTimer);
+  if (!G.labels && ['quiz', 'poll', 'order'].includes(q().type)) prepareQuestion(q());
   G.answers = {};
   G.qStart = Date.now();
   G.phase = 'question';
-  commit();
+  commit(false); // ingen ny melding – mobilene vet allerede når spørsmålet starter
   startTicker();
 }
 
@@ -203,6 +249,8 @@ function startTicker() {
 }
 
 function reveal() {
+  clearTimeout(allInTimer);
+  allInTimer = null;
   if (G.phase !== 'question') return;
   clearInterval(tick);
   const cur = q();
@@ -210,14 +258,60 @@ function reveal() {
   for (const [id, pl] of Object.entries(G.players)) {
     const a = G.answers[id];
     pl.answered = !!a;
-    if (!scored) { pl.ok = null; pl.pts = 0; continue; }
+    pl.history ||= {};
+    if (!scored) {
+      pl.ok = null; pl.pts = 0;
+      if (a) pl.history[G.qi] = { a: answerText(cur, a.value) };
+      continue;
+    }
     pl.ok = a ? judge(cur, a.value, G.map) : false;
     pl.pts = pl.ok ? speedPoints(cur, a.t) : 0;
     pl.score += pl.pts;
     pl.streak = pl.ok ? pl.streak + 1 : 0;
+    pl.history[G.qi] = { a: a ? answerText(cur, a.value) : '', ok: pl.ok, pts: pl.pts };
   }
   G.phase = 'reveal';
   commit();
+}
+
+// Gjør et svar om til lesbar tekst (til nedlastingen).
+function answerText(cur, v) {
+  if (v === undefined || v === null) return '';
+  switch (cur.type) {
+    case 'quiz': case 'poll': return cur.options[G.map ? G.map[v] : v]?.text ?? '';
+    case 'truefalse': return v === 0 ? t('ed.true') : t('ed.false');
+    case 'order': return Array.isArray(v) ? v.map(d => cur.items[G.map[d]]).join(' > ') : '';
+    case 'wordcloud': return Array.isArray(v) ? v.join(', ') : String(v);
+    case 'slider': return String(v) + (cur.unit ? ' ' + cur.unit : '');
+    default: return String(v);
+  }
+}
+
+function downloadResults() {
+  const esc = v => {
+    const s = String(v ?? '');
+    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const qsAll = quiz.questions.map((x, i) => ({ q: playable(x), i })).filter(x => x.q.type !== 'info');
+  const head = [t('res.place'), t('res.name'), t('res.score'), t('res.correct'),
+    ...qsAll.map(x => `${x.i + 1}. ${(x.q.text || t('type.' + x.q.type)).replace(/\s+/g, ' ').slice(0, 60)}`)];
+  const rows = ranked().map(p => {
+    const hist = p.history || {};
+    const nOk = Object.values(hist).filter(h => h.ok).length;
+    return [p.rank, p.name, p.score, nOk, ...qsAll.map(x => {
+      const h = hist[x.i];
+      if (!h) return '';
+      if (h.ok === undefined) return h.a;
+      return `${h.a} (${h.ok ? '✓' : '✗'}${h.pts ? ' ' + h.pts : ''})`;
+    })];
+  });
+  // Semikolon og BOM gjør at Excel med norske innstillinger åpner filen riktig.
+  const csv = '\ufeff' + [head, ...rows].map(r => r.map(esc).join(';')).join('\r\n');
+  const a = h('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })),
+    download: `${(quiz.title || 'kwest').replace(/[^\wæøåÆØÅ\- ]+/g, '').trim().replace(/\s+/g, '-')}-resultater-${new Date().toISOString().slice(0, 10)}.csv` });
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
 function podium() {
@@ -234,9 +328,9 @@ async function endGame() {
   setTimeout(() => { location.href = 'laerer.html'; }, 300);
 }
 
-function commit() {
+function commit(send = true) {
   persist();
-  broadcast();
+  if (send) broadcast();
   render();
 }
 
@@ -262,6 +356,7 @@ function toggleFullscreen() {
 
 function render() {
   if (!quiz) return;
+  app.querySelectorAll('audio').forEach(a => a.pause());
   clear(app);
   app.append(topbar());
   const main = h('main', { class: 'hmain phase-' + G.phase });
@@ -298,12 +393,19 @@ function renderLobbyInto(main) {
         h('button', { class: 'btn ghost', onclick: () => { G.locked = !G.locked; persist(); render(); } }, G.locked ? '🔒 ' + t('host.unlock') : '🔓 ' + t('host.lock')),
         h('button', { class: 'btn primary big', onclick: next }, t('host.start'))),
       ids.length
-        ? h('div', { class: 'chips' }, ids.map(id => {
+        ? h('div', { class: 'chips' + (ids.length > 30 ? ' many' : '') }, ids.map(id => {
           const isNew = !shownChips.has(id);
           shownChips.add(id);
           return h('button', { class: 'chip' + (isNew ? ' new' : ''), onclick: () => kick(id) }, G.players[id].name);
         }))
         : h('p', { class: 'waiting' }, h('span', { class: 'spinner small' }), t('host.waiting'))));
+}
+
+function audioPlayer(cur, autoplay) {
+  if (!cur.audio) return null;
+  const el = h('audio', { src: cur.audio, controls: true, preload: 'auto' });
+  if (autoplay && cur.autoplay !== false) setTimeout(() => el.play().catch(() => {}), 150);
+  return h('div', { class: 'audio-box' }, h('span', { class: 'audio-icon' }, '🔊'), el);
 }
 
 function questionHead(cur) {
@@ -328,8 +430,9 @@ function renderInfo(main) {
   put(main, h('div', { class: 'info-slide' },
     h('span', { class: 'qhead-mark' }, exclamationSvg(70)),
     cur.text ? h('div', { class: 'info-text' }, cur.text) : null,
-    cur.image ? h('img', { class: 'qimg', src: cur.image, alt: '' }) : null),
-    h('div', { class: 'hfoot' }, h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
+    cur.image ? h('img', { class: 'qimg', src: cur.image, alt: '' }) : null,
+    audioPlayer(cur, true)),
+    h('div', { class: 'hfoot' }, h('span', null), h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
 }
 
 function tiles(cur, opts = {}) {
@@ -359,6 +462,7 @@ function renderQuestion(main) {
       cur.image ? h('img', { class: 'qimg', src: cur.image, alt: '' }) : h('div', { class: 'qimg-empty' }, middle),
       h('div', { class: 'acount' }, h('strong', { class: 'acount-n' }, Object.keys(G.answers).length), h('span', null, t('host.answers')),
         h('button', { class: 'btn ghost small', onclick: reveal }, t('host.skip')))),
+    audioPlayer(cur, true),
     tiles(cur));
 }
 
@@ -404,7 +508,7 @@ function renderReveal(main) {
         return h('li', { style: { background: COLORS[d] } }, h('span', { class: 'shape' }, svg(SHAPES[d])), h('span', null, it));
       })));
   }
-  put(main, h('div', { class: 'reveal-body' }, body));
+  put(main, h('div', { class: 'reveal-body' }, body), audioPlayer(cur, false));
   put(main, h('div', { class: 'hfoot' },
     SCORED.includes(cur.type) ? h('span', { class: 'reveal-stat' }, t('host.correctCount', { n: nCorrect, total: nPlayers })) : h('span', null),
     h('button', { class: 'btn primary big', onclick: next }, G.qi >= total() - 1 ? t('host.podium') + ' 🏆' : t('host.next'))));
@@ -482,7 +586,9 @@ function renderPodium(main) {
     h('div', { class: 'podium' }, step(second, 2, 'second'), step(first, 1, 'first'), step(third, 3, 'third')),
     all.length > 3 ? h('details', { class: 'all-results' }, h('summary', null, t('host.allResults')),
       h('ol', null, all.slice(3).map(p => h('li', { value: p.rank }, h('span', null, p.name), h('b', null, p.score))))) : null,
-    h('div', { class: 'hfoot' }, h('span', null), h('button', { class: 'btn primary big', onclick: endGame }, t('host.end'))));
+    h('div', { class: 'hfoot' },
+      all.length ? h('button', { class: 'btn ghost', onclick: downloadResults }, '⬇ ' + t('res.download')) : h('span', null),
+      h('button', { class: 'btn primary big', onclick: endGame }, t('host.end'))));
   if (first) confetti();
 }
 
