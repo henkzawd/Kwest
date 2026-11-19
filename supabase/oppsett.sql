@@ -95,3 +95,32 @@ on conflict (id) do update set public = true, file_size_limit = 20971520, allowe
 drop policy if exists "media_upload" on storage.objects;
 create policy "media_upload" on storage.objects for insert to authenticated
   with check (bucket_id = 'media' and public.is_approved());
+
+-- Tilbakemeldinger: alle (også elever) kan sende, bare administratorer kan lese.
+create table if not exists public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  message text not null check (char_length(message) between 1 and 2000),
+  name text check (name is null or char_length(name) <= 80),
+  email text check (email is null or char_length(email) <= 200),
+  page text check (page is null or char_length(page) <= 40),
+  user_id uuid default auth.uid(),
+  handled boolean not null default false
+);
+alter table public.feedback enable row level security;
+
+drop policy if exists "feedback_insert" on public.feedback;
+create policy "feedback_insert" on public.feedback for insert to anon, authenticated
+  with check (handled = false);
+
+drop policy if exists "feedback_admin_select" on public.feedback;
+create policy "feedback_admin_select" on public.feedback for select to authenticated using (public.is_admin());
+
+drop policy if exists "feedback_admin_update" on public.feedback;
+create policy "feedback_admin_update" on public.feedback for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "feedback_admin_delete" on public.feedback;
+create policy "feedback_admin_delete" on public.feedback for delete to authenticated using (public.is_admin());
+
+grant insert on public.feedback to anon, authenticated;
+grant select, update, delete on public.feedback to authenticated;

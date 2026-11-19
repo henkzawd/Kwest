@@ -53,7 +53,7 @@ Lærersiden blir: **https://kwesting.vercel.app/laerer.html**
 
 Claude legger verdiene inn i Kwest og publiserer på nytt.
 
-(Kjørte du `oppsett.sql` før lyd og bilder ble lagt til, kjør hele filen én gang til – det er trygt.)
+(Har Kwest fått nye funksjoner siden du kjørte `oppsett.sql`, kjør hele filen én gang til – det er trygt.)
 
 ---
 

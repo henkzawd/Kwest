@@ -594,7 +594,7 @@ function renderPodium(main) {
 
 function confetti() {
   const box = h('div', { class: 'confetti', 'aria-hidden': 'true' });
-  const colors = ['#FFC400', '#F29A00', '#D62839', '#1F5FD1', '#1E8B3A', '#7A3BD9'];
+  const colors = ['#E4BC5A', '#B8862A', '#D62839', '#1F5FD1', '#1E8B3A', '#7A3BD9'];
   for (let i = 0; i < 90; i++) {
     box.append(h('i', { style: { left: Math.random() * 100 + '%', background: colors[i % colors.length], animationDelay: (Math.random() * 1.5) + 's', animationDuration: (2.5 + Math.random() * 2) + 's', transform: `rotate(${Math.random() * 360}deg)` } }));
   }

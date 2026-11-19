@@ -2,6 +2,7 @@
 import { h, svg, clear, uid, qs, baseUrl } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
+import { feedbackDialog } from './feedback.js';
 import { COLORS, SHAPES, colorIndex } from './game.js';
 import { wordmark, questionSvg, exclamationSvg, landscape, setFavicon } from './logo.js';
 
@@ -66,7 +67,9 @@ function joinView(error = '') {
       input,
       msg,
       h('button', { class: 'btn primary huge', type: 'submit' }, needPin ? t('join.next') : t('join.go'))),
-    h('a', { class: 'teacher-link', href: 'laerer.html' }, t('join.teacher'))), { cls: 'center', hero: true });
+    h('div', { class: 'join-links' },
+      h('a', { class: 'teacher-link', href: 'laerer.html' }, t('join.teacher')),
+      h('button', { class: 'link teacher-link', type: 'button', onclick: () => feedbackDialog(null, 'elev') }, t('fb.button')))), { cls: 'center', hero: true });
   setTimeout(() => input.focus(), 50);
 }
 

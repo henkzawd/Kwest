@@ -3,6 +3,7 @@ import { h, svg, clear, debounce, modal, confirmBox, toast, readImage, download,
 import { t, lang, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz } from './game.js';
+import { feedbackDialog } from './feedback.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
 
 setFavicon();
@@ -22,6 +23,7 @@ async function route() {
   if (page === 'rediger' && id) return editorView(id);
   if (page === 'ny') return editorView(null);
   if (page === 'brukere' && me.profile.is_admin) return usersView();
+  if (page === 'tilbakemeldinger' && me.profile.is_admin) return feedbackView();
   if (page === 'alle') return listView('all');
   return listView('mine');
 }
@@ -42,12 +44,52 @@ function shell(content, active) {
       h('nav', { class: 'tabs' },
         tab('#/', 'mine', t('nav.mine')),
         tab('#/alle', 'all', t('nav.all')),
-        isAdmin ? tab('#/brukere', 'users', t('nav.users')) : null),
+        isAdmin ? tab('#/brukere', 'users', t('nav.users')) : null,
+        isAdmin ? tab('#/tilbakemeldinger', 'feedback', [t('nav.feedback'), h('span', { class: 'badge fb-count hidden' })]) : null),
       h('span', { class: 'spacer' }),
+      h('button', { class: 'btn ghost small', onclick: () => feedbackDialog({ name: me?.profile?.name, email: me?.user?.email }, 'lærer', () => (location.hash === '#/tilbakemeldinger' ? feedbackView() : updateFeedbackBadge())) }, '✉ ' + t('fb.button')),
       h('span', { class: 'who' }, me?.profile?.name || me?.user?.email || ''),
       langButton(route),
       h('button', { class: 'btn ghost small', onclick: async () => { await backend.signOut(); route(); } }, t('nav.logout'))),
     h('main', { class: 'tmain' }, content));
+  if (isAdmin) updateFeedbackBadge();
+}
+
+async function updateFeedbackBadge() {
+  try {
+    const n = (await backend.listFeedback()).filter(f => !f.handled).length;
+    const el = document.querySelector('.fb-count');
+    if (el) { el.textContent = n; el.classList.toggle('hidden', !n); }
+  } catch { /* tabellen finnes kanskje ikke ennå */ }
+}
+
+// ---------- Tilbakemeldinger (bare administrator) ----------
+async function feedbackView() {
+  shell(h('div', { class: 'spinner' }), 'feedback');
+  let list;
+  try { list = await backend.listFeedback(); }
+  catch (e) { return shell(h('div', null, h('h1', null, t('nav.feedback')), h('p', { class: 'form-error' }, t('fb.missingTable'))), 'feedback'); }
+  const item = f => h('article', { class: 'fb-item' + (f.handled ? ' done' : '') },
+    h('div', { class: 'fb-meta' },
+      h('b', null, f.name || t('fb.anonymous')),
+      f.email ? h('a', { href: 'mailto:' + f.email }, f.email) : null,
+      h('span', { class: 'muted' }, fmtDate(f.created_at, lang) + ' · ' + new Date(f.created_at).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'nb-NO', { hour: '2-digit', minute: '2-digit' })),
+      f.page ? h('span', { class: 'fb-page' }, f.page) : null),
+    h('p', { class: 'fb-msg' }, f.message),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn ghost small', onclick: async () => {
+        try { await backend.updateFeedback(f.id, { handled: !f.handled }); feedbackView(); } catch (e) { toast(errMsg(e), 'bad'); }
+      } }, f.handled ? t('fb.markNew') : '✓ ' + t('fb.markDone')),
+      h('button', { class: 'btn ghost small danger-text', onclick: async () => {
+        if (!(await confirmBox(t('common.delete'), t('fb.deleteConfirm'), t('common.delete'), t('common.cancel')))) return;
+        try { await backend.deleteFeedback(f.id); feedbackView(); } catch (e) { toast(errMsg(e), 'bad'); }
+      } }, t('common.delete'))));
+  const open = list.filter(f => !f.handled), done = list.filter(f => f.handled);
+  shell(h('div', null,
+    h('h1', null, t('nav.feedback')),
+    !list.length ? h('div', { class: 'empty' }, questionSvg(70), h('p', null, t('fb.none'))) : null,
+    open.map(item),
+    done.length ? h('details', { class: 'fb-done' }, h('summary', null, t('fb.handled', { n: done.length })), done.map(item)) : null), 'feedback');
 }
 
 // ---------- Innlogging ----------

@@ -219,6 +219,24 @@ try {
   step('Resultatfil lastet ned: ' + csv.split('\n')[1].slice(0, 80));
   step('Spillet gikk gjennom alle 8 typer, Ola vant');
 
+  // Tilbakemelding fra elev (anonym) og lærer, og administratoren ser begge
+  await p2.goto(URL0);
+  await p2.getByRole('button', { name: 'Gi tilbakemelding' }).click();
+  await p2.locator('.modal textarea').fill('Morsomt spill!');
+  await p2.locator('.modal').getByRole('button', { name: 'Send' }).click();
+  await p2.getByText('Takk for tilbakemeldingen!').waitFor();
+  await host.goto(URL0 + 'laerer.html');
+  await host.getByRole('button', { name: /Gi tilbakemelding/ }).click();
+  await host.locator('.modal textarea').fill('Kan vi få flere spørsmålstyper?');
+  await host.locator('.modal').getByRole('button', { name: 'Send' }).click();
+  await host.locator('.fb-count').filter({ hasText: '2' }).waitFor();
+  await host.getByRole('link', { name: /Tilbakemeldinger/ }).click();
+  await host.locator('.fb-item').nth(1).waitFor();
+  await shot(host, '24-tilbakemeldinger');
+  await host.locator('.fb-item').first().getByRole('button', { name: /behandlet/ }).click();
+  await host.locator('.fb-count').filter({ hasText: '1' }).waitFor();
+  step('Tilbakemeldinger fungerer');
+
   // Engelsk
   await p2.goto(URL0);
   await p2.getByRole('button', { name: 'English' }).click();

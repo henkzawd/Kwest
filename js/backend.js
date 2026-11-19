@@ -54,6 +54,10 @@ function supabaseBackend() {
     async listProfiles() {
       return ok(await client.from('profiles').select('*').order('created_at', { ascending: true }));
     },
+    async sendFeedback(f) { ok(await client.from('feedback').insert(f)); },
+    async listFeedback() { return ok(await client.from('feedback').select('*').order('created_at', { ascending: false })); },
+    async updateFeedback(id, patch) { ok(await client.from('feedback').update(patch).eq('id', id)); },
+    async deleteFeedback(id) { ok(await client.from('feedback').delete().eq('id', id)); },
     async updateProfile(id, patch) { ok(await client.from('profiles').update(patch).eq('id', id)); },
 
     channel(pin) {
@@ -158,6 +162,13 @@ function demoBackend() {
     },
     async deleteQuiz(id) { write('kwest-demo-quizzes', quizzes().filter(x => x.id !== id)); },
     async listProfiles() { return users().map(prof); },
+    async sendFeedback(f) {
+      const u = me();
+      write('kwest-demo-feedback', [{ id: uid(), created_at: new Date().toISOString(), handled: false, user_id: u?.id || null, ...f }, ...read('kwest-demo-feedback', [])]);
+    },
+    async listFeedback() { return read('kwest-demo-feedback', []); },
+    async updateFeedback(id, patch) { write('kwest-demo-feedback', read('kwest-demo-feedback', []).map(f => (f.id === id ? { ...f, ...patch } : f))); },
+    async deleteFeedback(id) { write('kwest-demo-feedback', read('kwest-demo-feedback', []).filter(f => f.id !== id)); },
     async updateProfile(id, patch) {
       const list = users();
       Object.assign(list.find(u => u.id === id), patch);
