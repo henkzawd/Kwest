@@ -151,7 +151,7 @@ try {
   await shot(p1, '14-mobil-riktig');
   await shot(p2, '15-mobil-feil');
   await host.getByRole('button', { name: 'Neste' }).click();
-  await host.locator('.board').waitFor();
+  await host.locator('.trail-scene').waitFor(); await host.waitForTimeout(2600);
   await shot(host, '16-poengtavle');
   await host.getByRole('button', { name: 'Neste' }).click();
 

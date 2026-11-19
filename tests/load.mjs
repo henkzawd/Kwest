@@ -73,9 +73,11 @@ try {
   await host.waitForTimeout(1500);
   await host.screenshot({ path: (process.env.SHOTS || '/tmp') + '/load-lobby.png' });
   await host.getByRole('button', { name: 'Start' }).click();
+  let shotTrail = false;
   for (let guard = 0; guard < 400; guard++) {
     if (await host.locator('.podium-scene').count()) break;
     const btn = host.locator('.hfoot .btn.primary');
+    if (!shotTrail && await host.locator('.trail-scene').count()) { shotTrail = true; await host.waitForTimeout(2600); await host.screenshot({ path: (process.env.SHOTS || '/tmp') + '/load-sti.png' }); }
     if (await btn.count()) { await host.waitForTimeout(1500); await btn.click(); continue; }
     await host.waitForTimeout(400);
   }

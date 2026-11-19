@@ -2,7 +2,7 @@
 import { h, svg, clear, qs, makePin, shuffle, baseUrl, normText, confirmBox, toast } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
-import { COLORS, SHAPES, SCORED, colorIndex, playable, judge, speedPoints } from './game.js';
+import { COLORS, SHAPES, SCORED, colorIndex, playable, judge, speedPoints, basePoints } from './game.js';
 import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
 
@@ -563,16 +563,88 @@ function sliderReveal(cur, answers) {
       h('span', { class: 'numline-end l' }, cur.min + unit), h('span', { class: 'numline-end r' }, cur.max + unit)));
 }
 
+// Poengtavle: en sti opp fjellet på dagtid. Jo flere poeng, jo lenger opp stien.
+// Toppen tilsvarer alle mulige poeng så langt i spillet, så ledende spiller klatrer gradvis gjennom kwestet.
+const TRAIL = 'M110 668 C 330 650, 420 600, 560 590 S 760 560, 800 505 S 820 430, 930 410 S 1080 380, 1090 320 S 1110 245, 1200 222 S 1265 175, 1268 140';
+
+function trailScene() {
+  return svg(`<svg class="scene" viewBox="0 0 1600 700" aria-hidden="true">
+    <defs>
+      <linearGradient id="dsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6FB8EC"/><stop offset=".55" stop-color="#BFE3F7"/><stop offset="1" stop-color="#FFF0CF"/></linearGradient>
+      <radialGradient id="dsun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFFBE6"/><stop offset=".45" stop-color="#FFE58A"/><stop offset="1" stop-color="#FFE58A" stop-opacity="0"/></radialGradient>
+      <linearGradient id="dmtn" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A9B7C9"/><stop offset=".6" stop-color="#7D8EA6"/><stop offset="1" stop-color="#5E6F88"/></linearGradient>
+      <linearGradient id="dmeadow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9FCB7C"/><stop offset="1" stop-color="#5E9B55"/></linearGradient>
+      <linearGradient id="dmeadow2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FB466"/><stop offset="1" stop-color="#477F43"/></linearGradient>
+    </defs>
+    <rect width="1600" height="700" fill="url(#dsky)"/>
+    <circle cx="300" cy="120" r="150" fill="url(#dsun)" class="dsun"/>
+    <g class="clouds" fill="#fff" opacity=".85">
+      <g class="cloud c1"><ellipse cx="620" cy="110" rx="70" ry="22"/><ellipse cx="660" cy="96" rx="44" ry="28"/><ellipse cx="590" cy="104" rx="34" ry="20"/></g>
+      <g class="cloud c2"><ellipse cx="1420" cy="200" rx="60" ry="18"/><ellipse cx="1450" cy="188" rx="36" ry="24"/></g>
+      <g class="cloud c3"><ellipse cx="900" cy="60" rx="50" ry="14"/><ellipse cx="925" cy="50" rx="30" ry="18"/></g>
+    </g>
+    <path d="M0 470 L130 400 L250 440 L370 360 L500 430 L620 380 L700 420 L800 360 L900 420 L1000 380 L1100 430 V700 H0Z" fill="#B9CCE2" opacity=".9"/>
+    <path d="M1380 360 L1480 300 L1600 350 V700 H1380Z" fill="#B9CCE2" opacity=".9"/>
+    <polygon points="560,700 760,470 860,500 1000,330 1080,300 1268,128 1340,190 1420,250 1500,360 1600,420 1600,700" fill="url(#dmtn)"/>
+    <polygon points="1268,128 1340,190 1420,250 1500,360 1600,420 1600,700 1240,700 1250,400" fill="#3E4C66" opacity=".25"/>
+    <polygon points="1268,128 1226,168 1244,176 1258,160 1272,182 1290,164 1316,170" fill="#fff" opacity=".9"/>
+    <path d="M0 640 C 220 560, 420 600, 620 560 S 900 520, 1000 560 S 1300 600, 1600 560 V700 H0Z" fill="url(#dmeadow)"/>
+    <path d="M0 690 C 260 640, 520 680, 780 650 S 1200 640, 1600 680 V700 H0Z" fill="url(#dmeadow2)"/>
+    <g fill="#3F7A3E" opacity=".9"><path d="M170 640 l14 -40 l14 40z"/><path d="M200 650 l12 -34 l12 34z"/><path d="M1440 610 l14 -40 l14 40z"/><path d="M1470 620 l12 -34 l12 34z"/></g>
+    <path class="trail-path" d="${TRAIL}" fill="none" stroke="#F3E2B8" stroke-width="16" stroke-linecap="round" opacity=".9"/>
+    <path d="${TRAIL}" fill="none" stroke="#C9A86A" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round"/>
+    <line x1="1268" y1="140" x2="1268" y2="96" stroke="#2A1D05" stroke-width="3"/>
+    <path d="M1269 98 h34 l-8 9 l8 9 h-34z" fill="#FFB424" stroke="#2A1D05" stroke-width="2" stroke-linejoin="round"/>
+  </svg>`);
+}
+
 function renderScoreboard(main) {
-  const top = ranked().slice(0, 5);
-  const max = Math.max(1, ...top.map(p => p.score));
-  put(main, h('h1', { class: 'board-title' }, t('host.scoreboard')),
-    h('ol', { class: 'board' }, top.map((p, i) => h('li', { style: { animationDelay: i * 90 + 'ms' } },
-      h('span', { class: 'board-rank' }, p.rank),
-      h('span', { class: 'board-name' }, p.name, p.streak > 1 ? h('span', { class: 'board-streak' }, ' 🔥' + p.streak) : null),
-      h('span', { class: 'board-bar' }, h('span', { style: { width: (p.score / max * 100) + '%' } })),
-      h('span', { class: 'board-score' }, p.score, p.pts ? h('small', null, ' +' + p.pts) : null)))),
-    h('div', { class: 'hfoot' }, h('span', null), h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
+  const all = ranked();
+  // Mulige poeng så langt = toppen av fjellet.
+  const possible = quiz.questions.slice(0, G.qi + 1).map(playable).filter(x => SCORED.includes(x.type)).reduce((sum, x) => sum + basePoints(x), 0) || 1;
+  const scene = h('div', { class: 'trail-scene' }, trailScene(), h('h1', { class: 'scene-title day' }, t('host.scoreboard')));
+  put(main, scene, h('div', { class: 'hfoot' }, h('span', null), h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
+
+  const path = scene.querySelector('.trail-path');
+  const L = path.getTotalLength();
+  const at = frac => {
+    const pt = path.getPointAtLength(L * (0.03 + 0.95 * Math.min(1, Math.max(0, frac))));
+    return { left: (pt.x / 16) + '%', top: (pt.y / 7) + '%' };
+  };
+  const frac = score => score / possible;
+  // Alle andre som små prikker langs stien.
+  all.slice(5).forEach(p => scene.append(h('div', { class: 'trail-dot', style: at(frac(p.score)) })));
+  // De fem beste, som går fra forrige plass til ny plass langs stien.
+  const top = all.slice(0, 5);
+  const ends = top.map(p => frac(p.score));
+  // Står de tett, får de litt luft mellom seg på stien, og navnene vises i en egen liste.
+  for (let i = 1; i < ends.length; i++) ends[i] = Math.min(ends[i], ends[i - 1] - 0.03);
+  const crowded = top.some((p, i) => i && frac(top[i - 1].score) - frac(p.score) < 0.1);
+  const label = p => h('span', { class: 'trail-label' },
+    h('b', null, p.name),
+    h('span', null, p.score + ' p', p.pts ? h('em', null, ' +' + p.pts) : null, p.streak > 1 ? ' 🔥' + p.streak : null));
+  const markers = top.map((p, i) => {
+    const endX = parseFloat(at(ends[i]).left);
+    // Navnelappen står annenhver gang til høyre og venstre, men aldri utenfor kanten.
+    const side = endX < 18 ? '' : endX > 80 ? ' left' : (i % 2 ? ' left' : '');
+    const m = h('div', { class: 'trail-marker r' + p.rank + side, style: at(Math.min(frac(p.score - p.pts), ends[i])) },
+      h('span', { class: 'trail-rank' }, p.rank), crowded ? null : label(p));
+    return { m, from: Math.min(frac(p.score - p.pts), ends[i]), to: ends[i] };
+  }).reverse(); // lederen tegnes øverst
+  markers.forEach(x => scene.append(x.m));
+  if (crowded) {
+    scene.append(h('ol', { class: 'trail-list' }, top.map(p => h('li', null,
+      h('span', { class: 'trail-rank static' + (p.rank === 1 ? ' gold' : '') }, p.rank), label(p)))));
+  }
+  const start = performance.now() + 400, dur = 1800;
+  const step = now => {
+    if (!scene.isConnected) return;
+    const k = Math.min(1, Math.max(0, (now - start) / dur));
+    const e = 1 - Math.pow(1 - k, 3);
+    markers.forEach(x => Object.assign(x.m.style, at(x.from + (x.to - x.from) * e)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 // Pallen: tre fjelltopper (gull, sølv, bronse) som en fjellkjede foran en solnedgang.
