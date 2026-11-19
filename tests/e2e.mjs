@@ -200,15 +200,23 @@ try {
 
   // 7: rekkefølge
   await waitQ();
-  // Ola trykker feil, fjerner det igjen, og fullfører riktig
-  const organ = p1.locator('.pbtn').filter({ has: p1.locator('.pbtn-text', { hasText: /^Organ$/ }) });
-  await organ.click();
-  await organ.click();
-  if (await p1.locator('.pbtn.picked').count()) throw new Error('Klarte ikke å fjerne valgt svar');
-  for (const w of ['Celle', 'Vev', 'Organ', 'Organsystem']) await p1.locator('.pbtn', { hasText: new RegExp('^' + w + '$') }).click();
+  // Ola drar feltene i riktig rekkefølge; Kari sender slik de står (alltid stokket = feil)
+  const dragTo = async (page, word, slot) => {
+    const src = page.locator('.drag-row').filter({ hasText: new RegExp('^\\d' + word + '$') });
+    const a = await src.boundingBox();
+    const b = await page.locator('.drag-row').nth(slot).boundingBox();
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(a.x + a.width / 2, b.y + b.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(250);
+  };
+  const words = ['Celle', 'Vev', 'Organ', 'Organsystem'];
+  for (let k = 0; k < 4; k++) await dragTo(p1, words[k], k);
+  const got = await p1.locator('.drag-text').allTextContents();
+  if (got.join() !== words.join()) throw new Error('Dra og slipp ga feil rekkefølge: ' + got.join());
   await shot(p1, '20-mobil-rekkefolge');
   await p1.getByRole('button', { name: 'Send' }).click();
-  for (const w of ['Organsystem', 'Organ', 'Vev', 'Celle']) await p2.locator('.pbtn', { hasText: new RegExp('^' + w + '$') }).click();
   await p2.getByRole('button', { name: 'Send' }).click();
   await p1.getByText('Riktig!').waitFor();
   await p2.getByText('Feil').waitFor();

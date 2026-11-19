@@ -238,25 +238,7 @@ function answerView(st) {
       h('div', { class: 'range-ends' }, h('span', null, q.min), h('span', null, q.max)),
       h('button', { class: 'btn primary huge', onclick: () => sendAnswer(Number(range.value)) }, t('play.send')));
   } else if (q.type === 'order') {
-    const picked = [];
-    const grid = h('div', { class: 'pgrid n' + q.labels.length });
-    const sendBtn = h('button', { class: 'btn primary', disabled: true, onclick: () => sendAnswer(picked.slice()) }, t('play.send'));
-    const draw = () => {
-      clear(grid);
-      q.labels.forEach((label, i) => {
-        const pos = picked.indexOf(i);
-        grid.append(h('button', {
-          class: 'pbtn' + (pos >= 0 ? ' picked' : ''), style: { background: COLORS[i] },
-          // Trykk igjen på et valgt svar for å fjerne det (de etter rykker opp).
-          onclick: () => { if (pos < 0) picked.push(i); else picked.splice(pos, 1); draw(); },
-        }, pos >= 0 ? h('span', { class: 'order-num' }, pos + 1) : h('span', { class: 'shape' }, svg(SHAPES[i])),
-        h('span', { class: 'pbtn-text', style: { fontSize: fitSize(label) } }, label)));
-      });
-      sendBtn.disabled = picked.length !== q.labels.length;
-    };
-    draw();
-    body = h('div', { class: 'order-wrap' }, h('p', { class: 'order-hint' }, t('play.orderHint')), grid,
-      h('div', { class: 'order-actions' }, h('button', { class: 'btn ghost', onclick: () => { picked.length = 0; draw(); } }, t('play.undo')), sendBtn));
+    body = dragList(q);
   }
   const deadline = Date.now() + (st.remaining || 0);
   const timeEl = h('span', { class: 'ptime' });
@@ -264,6 +246,73 @@ function answerView(st) {
   tick();
   S.timer = setInterval(tick, 250);
   frame(h('div', { class: 'answer-wrap' }, h('div', { class: 'pq-head' }, h('span', null, t('play.question', { n: st.qi + 1, total: st.total })), timeEl), body), { bar: true, cls: 'answering' });
+}
+
+// Rekkefølge: eleven drar feltene opp og ned. Plassnummeret (1 = øverst = først) står i hjørnet.
+function dragList(q) {
+  const order = q.labels.map((_, i) => i); // visningsindekser, øverst først
+  const list = h('div', { class: 'drag-list' });
+  const rows = q.labels.map((label, i) => h('div', { class: 'drag-row', style: { background: COLORS[i] } },
+    h('span', { class: 'drag-pos' }),
+    h('span', { class: 'drag-text', style: { fontSize: fitSize(label) } }, label),
+    h('span', { class: 'drag-handle', 'aria-hidden': 'true' }, svg('<svg viewBox="0 0 20 20" width="22" height="22"><g fill="currentColor"><circle cx="7" cy="5" r="1.6"/><circle cx="13" cy="5" r="1.6"/><circle cx="7" cy="10" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="13" cy="15" r="1.6"/></g></svg>'))));
+  const layout = () => order.forEach((d, pos) => { list.append(rows[d]); rows[d].querySelector('.drag-pos').textContent = pos + 1; });
+  layout();
+
+  // Flytt et felt og la de andre gli pent på plass (FLIP-animasjon).
+  const moveTo = (d, target) => {
+    const before = new Map(rows.map(r => [r, r.getBoundingClientRect().top]));
+    order.splice(order.indexOf(d), 1);
+    order.splice(target, 0, d);
+    layout();
+    rows.forEach(r => {
+      if (r === rows[d]) return;
+      const dy = before.get(r) - r.getBoundingClientRect().top;
+      if (!dy) return;
+      r.style.transition = 'none';
+      r.style.transform = `translateY(${dy}px)`;
+      requestAnimationFrame(() => { r.style.transition = 'transform .18s ease'; r.style.transform = ''; });
+    });
+  };
+
+  let drag = null;
+  rows.forEach((row, d) => {
+    row.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      row.setPointerCapture(e.pointerId);
+      const step = rows.length > 1 ? Math.abs(rows[order[1]].getBoundingClientRect().top - rows[order[0]].getBoundingClientRect().top) : 1;
+      drag = { d, row, startY: e.clientY, step };
+      row.style.transition = 'none';
+      row.classList.add('dragging');
+    });
+    row.addEventListener('pointermove', e => {
+      if (!drag || drag.row !== row) return;
+      let dy = e.clientY - drag.startY;
+      const pos = order.indexOf(d);
+      const target = Math.max(0, Math.min(order.length - 1, pos + Math.round(dy / drag.step)));
+      if (target !== pos) {
+        moveTo(d, target);
+        drag.startY += (target - pos) * drag.step;
+        dy = e.clientY - drag.startY;
+      }
+      row.style.transform = `translateY(${dy}px)`;
+    });
+    const end = () => {
+      if (!drag || drag.row !== row) return;
+      drag = null;
+      row.classList.remove('dragging');
+      row.style.transition = 'transform .18s ease';
+      row.style.transform = '';
+      if (navigator.vibrate) navigator.vibrate(10);
+    };
+    row.addEventListener('pointerup', end);
+    row.addEventListener('pointercancel', end);
+  });
+
+  return h('div', { class: 'order-wrap' },
+    h('p', { class: 'order-hint' }, t('play.orderHint')),
+    list,
+    h('button', { class: 'btn primary huge', onclick: () => sendAnswer(order.slice()) }, t('play.send')));
 }
 
 function fitSize(text) {
