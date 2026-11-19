@@ -319,25 +319,11 @@ select { cursor: pointer; }
 .board-score { text-align: right; }
 .board-score small { color: var(--ok); font-size: .9rem; display: block; }
 
-.podium { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 18px; min-height: 340px; }
-.pod { width: min(260px, 28vw); display: flex; flex-direction: column; align-items: center; gap: 6px; animation: rise .8s cubic-bezier(.2, .9, .3, 1.2) both; }
-.pod.third { animation-delay: .3s; } .pod.second { animation-delay: .9s; } .pod.first { animation-delay: 1.6s; }
-@keyframes rise { from { transform: translateY(120px); opacity: 0; } }
-.pod-name { font-size: 1.8rem; font-weight: 700; text-align: center; overflow-wrap: anywhere; }
-.pod-score { font-weight: 700; color: var(--muted); font-size: 1.2rem; }
-.pod-block { width: 100%; border-radius: 18px 18px 0 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 16px; gap: 6px; box-shadow: inset 0 -10px 0 rgba(0, 0, 0, .08); }
-.pod.first .pod-block { height: 260px; background: linear-gradient(#FFE14D, #FFA41F); }
-.pod.second .pod-block { height: 190px; background: linear-gradient(#F1F1F1, #D5D5D5); }
-.pod.third .pod-block { height: 140px; background: linear-gradient(#F3D3B0, #D9A574); }
-.pod-place { font-family: var(--display); font-size: 3.5rem; font-weight: 400; color: rgba(42, 29, 5, .65); }
 .all-results { width: min(700px, 100%); margin: 0 auto; background: var(--soft); border-radius: 14px; padding: 12px 18px; }
 .all-results summary { cursor: pointer; font-weight: 700; }
 .all-results ol { margin: 10px 0 0; padding-left: 2em; columns: 2; }
 .all-results li { font-size: 1.1rem; padding: 3px 0; }
 .all-results li b { margin-left: 10px; color: var(--muted); }
-.confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 30; }
-.confetti i { position: absolute; top: -20px; width: 10px; height: 16px; border-radius: 2px; animation: fall linear forwards; }
-@keyframes fall { to { top: 105%; transform: rotate(720deg) translateX(40px); } }
 
 /* =========================================================
    LÆRER
@@ -505,3 +491,25 @@ select { cursor: pointer; }
 .menu-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 9px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; }
 .menu-item:hover { background: var(--soft); }
 .card-actions { align-items: center; }
+
+/* ---------- Pallen: fjellkjede i solnedgang ---------- */
+.phase-podium { gap: 14px; }
+.podium-scene { position: relative; width: min(100%, calc((100vh - 210px) * 16 / 7)); aspect-ratio: 16 / 7; margin: 0 auto; border-radius: 22px; overflow: hidden; box-shadow: 0 10px 40px rgba(27, 26, 71, .25); }
+.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.scene .star { fill: #FFF6DA; animation: twinkle 3.2s ease-in-out infinite; }
+@keyframes twinkle { 50% { opacity: .25; } }
+.scene .sun { animation: sunrise 3s ease-out both; transform-box: fill-box; transform-origin: center; }
+.scene .sun-glow { animation: glow 3s ease-out both; }
+@keyframes sunrise { from { transform: translateY(90px) scale(.9); opacity: .4; } }
+@keyframes glow { from { opacity: 0; } }
+.scene .peak { transform-box: view-box; animation: peak-rise 1.2s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes peak-rise { from { transform: translateY(560px); } }
+.scene .peak-num { font-family: var(--display); font-size: 92px; fill: #fff; opacity: .5; text-anchor: middle; }
+.scene-title { position: absolute; top: 4%; left: 0; right: 0; text-align: center; color: #FFF4DC; font-size: clamp(1.6rem, 3.4vw, 2.8rem); text-shadow: 0 2px 12px rgba(27, 26, 71, .6); margin: 0; }
+.summit { position: absolute; transform: translate(-6px, -100%); display: flex; flex-direction: column; align-items: flex-start; animation: summit-in .7s ease-out both; pointer-events: none; }
+@keyframes summit-in { from { opacity: 0; transform: translate(-6px, calc(-100% + 16px)); } }
+.summit-flag { display: block; margin-left: 4px; }
+.summit-name, .summit-score { background: rgba(255, 252, 244, .94); color: var(--ink); border-radius: 10px; padding: 4px 12px; box-shadow: 0 4px 14px rgba(27, 16, 48, .25); white-space: nowrap; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
+.summit-name { font-family: var(--display); font-size: clamp(1.1rem, 2.2vw, 2rem); }
+.summit-score { font-weight: 700; font-size: clamp(.8rem, 1.2vw, 1.05rem); color: var(--muted); margin: 4px 0 6px; }
+.summit.s1 .summit-name { font-size: clamp(1.3rem, 2.8vw, 2.5rem); box-shadow: 0 0 0 3px #FFD23F, 0 6px 20px rgba(27, 16, 48, .3); }

@@ -74,12 +74,12 @@ try {
   await host.screenshot({ path: (process.env.SHOTS || '/tmp') + '/load-lobby.png' });
   await host.getByRole('button', { name: 'Start' }).click();
   for (let guard = 0; guard < 400; guard++) {
-    if (await host.locator('.podium').count()) break;
+    if (await host.locator('.podium-scene').count()) break;
     const btn = host.locator('.hfoot .btn.primary');
     if (await btn.count()) { await host.waitForTimeout(1500); await btn.click(); continue; }
     await host.waitForTimeout(400);
   }
-  await host.locator('.podium').waitFor();
+  await host.locator('.podium-scene').waitFor();
   await host.waitForTimeout(3000);
   await host.screenshot({ path: (process.env.SHOTS || '/tmp') + '/load-podium.png' });
   const stats = await bots.evaluate(() => window.stats);

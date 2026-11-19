@@ -575,32 +575,91 @@ function renderScoreboard(main) {
     h('div', { class: 'hfoot' }, h('span', null), h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
 }
 
+// Pallen: tre fjelltopper (gull, sølv, bronse) som en fjellkjede foran en solnedgang.
+// Toppene ligger på faste steder i en scene på 1600 × 700, slik at navnene kan plasseres over dem.
+const PEAKS = [
+  { place: 1, x: 800, y: 140, metal: ['#FFE08A', '#E3A83A', '#7A4E17'],
+    ridge: '430,700 600,420 660,450 760,215 800,140 852,232 930,332 985,310 1170,700',
+    shade: '800,140 852,232 930,332 985,310 1170,700 830,700 812,380',
+    snow: '800,140 760,215 778,226 792,208 806,230 824,206 852,232' },
+  { place: 2, x: 430, y: 300, metal: ['#F4F6FA', '#B9C0CC', '#4B5160'],
+    ridge: '40,700 250,470 300,500 390,342 430,300 482,362 560,452 620,432 800,700',
+    shade: '430,300 482,362 560,452 620,432 800,700 460,700 440,520',
+    snow: '430,300 390,342 404,352 418,338 432,356 446,338 482,362' },
+  { place: 3, x: 1170, y: 390, metal: ['#F6C9A0', '#C98450', '#5A321C'],
+    ridge: '800,700 980,540 1030,562 1130,430 1170,390 1222,452 1300,522 1352,508 1560,700',
+    shade: '1170,390 1222,452 1300,522 1352,508 1560,700 1190,700 1178,560',
+    snow: '1170,390 1130,430 1144,440 1158,426 1172,444 1186,426 1222,452' },
+];
+const RISE = { 1: 1.7, 2: 0.95, 3: 0.25 }; // sekunder: bronse først, gull til slutt
+const SQUASH = 0.74; // fjellene skaleres ned i høyden så navnene får plass over toppene
+const peakY = y => 700 - (700 - y) * SQUASH;
+
+function podiumScene() {
+  let stars = '';
+  for (let i = 0; i < 46; i++) {
+    const x = (i * 337) % 1600, y = 18 + ((i * 131) % 230), r = 0.8 + (i % 3) * 0.55;
+    stars += `<circle class="star" cx="${x}" cy="${y}" r="${r}" style="animation-delay:${(i % 7) * 0.45}s"/>`;
+  }
+  const peaks = PEAKS.slice().sort((a, b) => a.place - b.place).map(p => `
+    <g class="peak" style="animation-delay:${RISE[p.place]}s">
+      <defs><linearGradient id="pk${p.place}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${p.metal[0]}"/><stop offset=".35" stop-color="${p.metal[1]}"/><stop offset="1" stop-color="${p.metal[2]}"/>
+      </linearGradient></defs>
+      <g transform="translate(0 700) scale(1 ${SQUASH}) translate(0 -700)">
+        <polygon points="${p.ridge}" fill="url(#pk${p.place})"/>
+        <polygon points="${p.shade}" fill="#1B1030" opacity=".28"/>
+        <polygon points="${p.snow}" fill="#FFFFFF" opacity=".55"/>
+      </g>
+      <text x="${p.x}" y="${(peakY(p.y) + 700) / 2 + 50}" class="peak-num">${p.place}</text>
+    </g>`).join('');
+  // Fjellene tegnes bakfra: 1 (midt) først, deretter 2 og 3 foran.
+  return svg(`<svg class="scene" viewBox="0 0 1600 700" aria-hidden="true">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1B1A47"/><stop offset=".32" stop-color="#5A2C6E"/><stop offset=".58" stop-color="#C9485E"/>
+        <stop offset=".76" stop-color="#F98A3C"/><stop offset=".9" stop-color="#FFC45C"/>
+      </linearGradient>
+      <radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF7D1"/><stop offset=".55" stop-color="#FFD66B"/><stop offset="1" stop-color="#FFB347" stop-opacity="0"/></radialGradient>
+      <radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFE29A" stop-opacity=".75"/><stop offset="1" stop-color="#FF9A4D" stop-opacity="0"/></radialGradient>
+      <linearGradient id="far1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C15A78"/><stop offset="1" stop-color="#8E3F6E"/></linearGradient>
+      <linearGradient id="far2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7D3A70"/><stop offset="1" stop-color="#3E2350"/></linearGradient>
+      <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD9A0" stop-opacity="0"/><stop offset="1" stop-color="#FFD9A0" stop-opacity=".35"/></linearGradient>
+    </defs>
+    <rect width="1600" height="700" fill="url(#sky)"/>
+    <g class="stars">${stars}</g>
+    <circle class="sun-glow" cx="800" cy="500" r="420" fill="url(#glow)"/>
+    <circle class="sun" cx="800" cy="500" r="135" fill="url(#sun)"/>
+    <path d="M0 520 L90 470 L170 500 L260 440 L350 485 L450 430 L560 480 L660 445 L760 470 L880 420 L990 470 L1090 440 L1200 485 L1300 430 L1400 475 L1500 450 L1600 480 V700 H0Z" fill="url(#far1)" opacity=".8"/>
+    <path d="M0 585 L120 530 L220 565 L330 515 L470 570 L600 530 L720 575 L860 525 L980 570 L1110 520 L1240 565 L1370 525 L1480 560 L1600 535 V700 H0Z" fill="url(#far2)" opacity=".85"/>
+    <rect y="470" width="1600" height="160" fill="url(#mist)"/>
+    <path class="birds" d="M300 205 q10 -9 20 0 q10 -9 20 0 M362 228 q7 -6 14 0 q7 -6 14 0 M1240 170 q9 -8 18 0 q9 -8 18 0" fill="none" stroke="#2A1838" stroke-width="3" stroke-linecap="round" opacity=".55"/>
+    ${peaks}
+    <rect y="680" width="1600" height="20" fill="#24152F"/>
+  </svg>`);
+}
+
 function renderPodium(main) {
   const all = ranked();
-  const [first, second, third] = all;
-  const step = (p, place, cls) => h('div', { class: 'pod ' + cls },
-    p ? h('div', { class: 'pod-name' }, p.name) : h('div', { class: 'pod-name muted' }, '–'),
-    p ? h('div', { class: 'pod-score' }, p.score) : null,
-    h('div', { class: 'pod-block' }, place === 1 ? exclamationSvg(70) : null, h('span', { class: 'pod-place' }, place)));
-  put(main, 
-    h('h1', { class: 'board-title' }, all.length ? t('host.podium') : t('host.nobody')),
-    h('div', { class: 'podium' }, step(second, 2, 'second'), step(first, 1, 'first'), step(third, 3, 'third')),
+  const byPlace = { 1: all[0], 2: all[1], 3: all[2] };
+  const labels = PEAKS.map(pk => {
+    const p = byPlace[pk.place];
+    if (!p) return null;
+    return h('div', { class: 'summit s' + pk.place, style: { left: (pk.x / 16) + '%', top: (peakY(pk.y) / 7) + '%', animationDelay: (RISE[pk.place] + 0.9) + 's' } },
+      h('div', { class: 'summit-name' }, p.name),
+      h('div', { class: 'summit-score' }, p.score + ' p'),
+      svg('<svg class="summit-flag" width="34" height="40" viewBox="0 0 34 40"><line x1="3" y1="2" x2="3" y2="40" stroke="#2A1D05" stroke-width="2.5"/><path d="M4 3 H30 L24 10 L30 17 H4 Z" fill="#FFB424" stroke="#2A1D05" stroke-width="1.6" stroke-linejoin="round"/></svg>'));
+  });
+  put(main,
+    h('div', { class: 'podium-scene' },
+      podiumScene(),
+      h('h1', { class: 'scene-title' }, all.length ? t('host.podium') : t('host.nobody')),
+      labels),
     all.length > 3 ? h('details', { class: 'all-results' }, h('summary', null, t('host.allResults')),
       h('ol', null, all.slice(3).map(p => h('li', { value: p.rank }, h('span', null, p.name), h('b', null, p.score))))) : null,
     h('div', { class: 'hfoot' },
       all.length ? h('button', { class: 'btn ghost', onclick: downloadResults }, [icon('download'), t('res.download')]) : h('span', null),
       h('button', { class: 'btn primary big', onclick: endGame }, t('host.end'))));
-  if (first) confetti();
-}
-
-function confetti() {
-  const box = h('div', { class: 'confetti', 'aria-hidden': 'true' });
-  const colors = ['#FFD23F', '#FF8A1F', '#D62839', '#1F5FD1', '#1E8B3A', '#7A3BD9'];
-  for (let i = 0; i < 90; i++) {
-    box.append(h('i', { style: { left: Math.random() * 100 + '%', background: colors[i % colors.length], animationDelay: (Math.random() * 1.5) + 's', animationDuration: (2.5 + Math.random() * 2) + 's', transform: `rotate(${Math.random() * 360}deg)` } }));
-  }
-  document.body.append(box);
-  setTimeout(() => box.remove(), 6000);
 }
 
 document.addEventListener('keydown', e => {

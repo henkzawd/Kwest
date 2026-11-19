@@ -205,10 +205,10 @@ try {
   await p2.locator('.pbtn').nth(1).click();
   await host.locator('.tiles.revealed').waitFor();
   await host.getByRole('button', { name: /Pallen/ }).click();
-  await host.locator('.podium').waitFor();
-  await host.waitForTimeout(2600);
+  await host.locator('.podium-scene').waitFor();
+  await host.waitForTimeout(3800);
   await shot(host, '22-pallen');
-  const firstName = await host.locator('.pod.first .pod-name').textContent();
+  const firstName = await host.locator('.summit.s1 .summit-name').textContent();
   if (firstName !== 'Ola') throw new Error('Ola skulle vunnet, vinner: ' + firstName);
   await p1.getByText('Du kom på 1. plass').waitFor();
   await p2.getByText('Du kom på 2. plass').waitFor();
