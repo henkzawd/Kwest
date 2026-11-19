@@ -4,6 +4,7 @@ import { t, lang, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz } from './game.js';
 import { feedbackDialog } from './feedback.js';
+import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
 
 setFavicon();
@@ -47,7 +48,7 @@ function shell(content, active) {
         isAdmin ? tab('#/brukere', 'users', t('nav.users')) : null,
         isAdmin ? tab('#/tilbakemeldinger', 'feedback', [t('nav.feedback'), h('span', { class: 'badge fb-count hidden' })]) : null),
       h('span', { class: 'spacer' }),
-      h('button', { class: 'btn ghost small', onclick: () => feedbackDialog({ name: me?.profile?.name, email: me?.user?.email }, 'lærer', () => (location.hash === '#/tilbakemeldinger' ? feedbackView() : updateFeedbackBadge())) }, '✉ ' + t('fb.button')),
+      h('button', { class: 'btn ghost small', onclick: () => feedbackDialog({ name: me?.profile?.name, email: me?.user?.email }, 'lærer', () => (location.hash === '#/tilbakemeldinger' ? feedbackView() : updateFeedbackBadge())) }, [icon('mail'), t('fb.button')]),
       h('span', { class: 'who' }, me?.profile?.name || me?.user?.email || ''),
       langButton(route),
       h('button', { class: 'btn ghost small', onclick: async () => { await backend.signOut(); route(); } }, t('nav.logout'))),
@@ -178,8 +179,8 @@ async function listView(which) {
       h('h1', null, which === 'mine' ? t('nav.mine') : t('nav.all')),
       h('span', { class: 'spacer' }),
       search,
-      h('button', { class: 'btn ghost', onclick: () => importDialog() }, '⇪ ' + t('list.import')),
-      h('button', { class: 'btn ghost', onclick: () => aiDialog() }, '✦ ' + t('list.ai')),
+      h('button', { class: 'btn ghost', onclick: () => importDialog() }, [icon('upload'), t('list.import')]),
+      h('button', { class: 'btn ghost', onclick: () => aiDialog() }, [icon('sparkle'), t('list.ai')]),
       h('a', { class: 'btn primary', href: '#/ny' }, '+ ' + t('list.new'))),
     grid), which);
 }
@@ -199,14 +200,31 @@ function card(r, refresh) {
           ' · ' + fmtDate(r.updated_at, lang)))),
     h('div', { class: 'card-actions' },
       h('a', { class: 'btn primary small', href: 'host.html?id=' + r.id }, '▶ ' + t('list.play')),
-      editable ? h('a', { class: 'btn ghost small', href: '#/rediger/' + r.id }, t('list.edit')) : null,
-      h('button', { class: 'btn ghost small', onclick: () => copyQuiz(r) }, t('list.copy')),
-      h('button', { class: 'btn ghost small', onclick: () => exportRow(r) }, t('list.export')),
-      editable ? h('button', { class: 'btn ghost small danger-text', onclick: async () => {
-        if (!(await confirmBox(t('list.delete'), t('list.deleteConfirm', { title: r.title }), t('common.delete'), t('common.cancel')))) return;
-        try { await backend.deleteQuiz(r.id); refresh(); } catch (e) { toast(errMsg(e), 'bad'); }
-      } }, t('list.delete')) : null));
+      editable
+        ? h('a', { class: 'btn ghost small', href: '#/rediger/' + r.id }, t('list.edit'))
+        : h('button', { class: 'btn ghost small', onclick: () => copyQuiz(r) }, t('list.copy')),
+      moreMenu([
+        editable ? [t('list.copy'), () => copyQuiz(r)] : null,
+        [t('list.export'), () => exportRow(r)],
+        editable ? [t('list.delete'), async () => {
+          if (!(await confirmBox(t('list.delete'), t('list.deleteConfirm', { title: r.title }), t('common.delete'), t('common.cancel')))) return;
+          try { await backend.deleteQuiz(r.id); refresh(); } catch (e) { toast(errMsg(e), 'bad'); }
+        }, 'danger-text'] : null,
+      ])));
 }
+
+// Liten «⋯»-meny for sjeldnere valg.
+function moreMenu(items) {
+  const menu = h('div', { class: 'menu hidden', role: 'menu' }, items.filter(Boolean).map(([label, fn, cls]) =>
+    h('button', { class: 'menu-item ' + (cls || ''), role: 'menuitem', onclick: () => { menu.classList.add('hidden'); fn(); } }, label)));
+  const btn = h('button', { class: 'icon-btn', 'aria-label': t('list.more'), title: t('list.more'), 'aria-haspopup': 'menu', onclick: e => {
+    e.stopPropagation();
+    document.querySelectorAll('.menu').forEach(m => m !== menu && m.classList.add('hidden'));
+    menu.classList.toggle('hidden');
+  } }, icon('more'));
+  return h('div', { class: 'menu-wrap' }, btn, menu);
+}
+document.addEventListener('click', () => document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden')));
 
 async function copyQuiz(r) {
   try {
@@ -485,15 +503,15 @@ function drawPanel() {
       select([['standard', t('ed.pStandard')], ['double', t('ed.pDouble')], ['none', t('ed.pNone')]], q.points, v => { q.points = v; changed(); }, ro)) : null,
     h('span', { class: 'spacer' }),
     ro ? null : h('div', { class: 'qtools' },
-      h('button', { class: 'icon-btn', title: t('ed.moveUp'), disabled: E.sel === 0, onclick: () => move(-1) }, '↑'),
-      h('button', { class: 'icon-btn', title: t('ed.moveDown'), disabled: E.sel === E.quiz.questions.length - 1, onclick: () => move(1) }, '↓'),
+      h('button', { class: 'icon-btn', title: t('ed.moveUp'), disabled: E.sel === 0, onclick: () => move(-1) }, icon('up')),
+      h('button', { class: 'icon-btn', title: t('ed.moveDown'), disabled: E.sel === E.quiz.questions.length - 1, onclick: () => move(1) }, icon('down')),
       h('button', { class: 'icon-btn', title: t('ed.duplicate'), onclick: () => {
         const copy = JSON.parse(JSON.stringify(q)); copy.id = uid(8);
         E.quiz.questions.splice(E.sel + 1, 0, copy); E.sel++; rerender();
-      } }, '⧉'),
+      } }, icon('copy')),
       h('button', { class: 'icon-btn danger-text', title: t('ed.deleteQ'), disabled: E.quiz.questions.length === 1, onclick: () => {
         E.quiz.questions.splice(E.sel, 1); E.sel = Math.max(0, E.sel - 1); rerender();
-      } }, '🗑')));
+      } }, icon('trash'))));
 
   const text = h('textarea', { class: 'q-text', rows: '2', maxlength: '400', placeholder: q.type === 'info' ? t('ed.infoPh') : t('ed.questionPh'), disabled: ro,
     oninput: e => { q.text = e.target.value; changed(); refreshItem(); } });
@@ -531,7 +549,7 @@ function imageBox(q, ro) {
     ondragover: e => { e.preventDefault(); box.classList.add('drag'); },
     ondragleave: () => box.classList.remove('drag'),
     ondrop: e => { e.preventDefault(); box.classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) setImage(q, f); },
-  }, h('span', { class: 'img-plus' }, '🖼'), h('span', null, t('ed.imageHint')), input);
+  }, h('span', { class: 'img-plus' }, icon('image', 30)), h('span', null, t('ed.imageHint')), input);
   return box;
 }
 
@@ -575,7 +593,7 @@ function audioBox(q, ro) {
     const warn = h('p', { class: 'form-error' });
     const player = h('audio', { src: q.audio, controls: true, preload: 'metadata', onerror: () => { warn.textContent = t('ed.audioBroken'); } });
     return h('div', { class: 'audio-edit' },
-      h('span', { class: 'audio-icon' }, '🔊'),
+      h('span', { class: 'audio-icon' }, icon('sound', 24)),
       h('div', { class: 'grow stack' }, player, warn,
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.autoplay !== false, disabled: ro, onchange: e => { q.autoplay = e.target.checked; changed(); } }), t('ed.autoplay'))),
       ro ? null : h('button', { class: 'btn ghost small', onclick: () => { q.audio = ''; changed(); drawPanel(); } }, t('ed.removeAudio')));
@@ -594,7 +612,7 @@ function audioBox(q, ro) {
     ondragleave: () => box.classList.remove('drag'),
     ondrop: e => { e.preventDefault(); box.classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) setAudio(q, f); },
   },
-    h('span', { class: 'audio-icon' }, '🔊'),
+    h('span', { class: 'audio-icon' }, icon('sound', 24)),
     h('div', { class: 'grow stack' },
       h('b', null, t('ed.audio')),
       h('div', { class: 'row' }, url, h('button', { class: 'btn ghost small', onclick: useUrl }, t('ed.useUrl')),

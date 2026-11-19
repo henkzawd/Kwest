@@ -3,6 +3,7 @@ import { h, svg, clear, qs, makePin, shuffle, baseUrl, normText, confirmBox, toa
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { COLORS, SHAPES, SCORED, colorIndex, playable, judge, speedPoints } from './game.js';
+import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
 
 setFavicon();
@@ -343,9 +344,9 @@ function topbar() {
     wordmark(30),
     G.phase !== 'lobby' ? h('span', { class: 'hbar-pin' }, joinHost() + ' · ' + t('host.pin') + ' ', h('b', null, G.pin)) : null,
     h('span', { class: 'spacer' }),
-    h('span', { class: 'hbar-count' }, '👤 ' + playerIds().length),
+    h('span', { class: 'hbar-count' }, icon('user'), h('span', { class: 'hbar-n' }, playerIds().length)),
     langButton(render),
-    h('button', { class: 'icon-btn', title: t('host.fullscreen'), onclick: toggleFullscreen }, '⛶'),
+    h('button', { class: 'icon-btn', title: t('host.fullscreen'), 'aria-label': t('host.fullscreen'), onclick: toggleFullscreen }, icon('expand')),
     h('button', { class: 'btn ghost small', onclick: endGame }, t('host.end')));
 }
 
@@ -390,7 +391,7 @@ function renderLobbyInto(main) {
         h('span', { class: 'lobby-count' }, t('host.players', { n: ids.length })),
         ids.length ? h('span', { class: 'muted' }, t('host.kickHint')) : null,
         h('span', { class: 'spacer' }),
-        h('button', { class: 'btn ghost', onclick: () => { G.locked = !G.locked; persist(); render(); } }, G.locked ? '🔒 ' + t('host.unlock') : '🔓 ' + t('host.lock')),
+        h('button', { class: 'btn ghost', onclick: () => { G.locked = !G.locked; persist(); render(); } }, G.locked ? [icon('lock'), t('host.unlock')] : [icon('unlock'), t('host.lock')]),
         h('button', { class: 'btn primary big', onclick: next }, t('host.start'))),
       ids.length
         ? h('div', { class: 'chips' + (ids.length > 30 ? ' many' : '') }, ids.map(id => {
@@ -405,7 +406,7 @@ function audioPlayer(cur, autoplay) {
   if (!cur.audio) return null;
   const el = h('audio', { src: cur.audio, controls: true, preload: 'auto' });
   if (autoplay && cur.autoplay !== false) setTimeout(() => el.play().catch(() => {}), 150);
-  return h('div', { class: 'audio-box' }, h('span', { class: 'audio-icon' }, '🔊'), el);
+  return h('div', { class: 'audio-box' }, h('span', { class: 'audio-icon' }, icon('sound', 26)), el);
 }
 
 function questionHead(cur) {
@@ -469,8 +470,8 @@ function renderQuestion(main) {
 function updateCount() {
   const el = document.querySelector('.acount-n');
   if (el) el.textContent = Object.keys(G.answers).length;
-  const c = document.querySelector('.hbar-count');
-  if (c) c.textContent = '👤 ' + playerIds().length;
+  const cn = document.querySelector('.hbar-n');
+  if (cn) cn.textContent = playerIds().length;
 }
 
 function renderReveal(main) {
@@ -511,7 +512,7 @@ function renderReveal(main) {
   put(main, h('div', { class: 'reveal-body' }, body), audioPlayer(cur, false));
   put(main, h('div', { class: 'hfoot' },
     SCORED.includes(cur.type) ? h('span', { class: 'reveal-stat' }, t('host.correctCount', { n: nCorrect, total: nPlayers })) : h('span', null),
-    h('button', { class: 'btn primary big', onclick: next }, G.qi >= total() - 1 ? t('host.podium') + ' 🏆' : t('host.next'))));
+    h('button', { class: 'btn primary big', onclick: next }, G.qi >= total() - 1 ? t('host.podium') : t('host.next'))));
 }
 
 function bars(cur, counts, correct) {
@@ -538,7 +539,7 @@ function wordCloud(answers) {
   // Største ord i midten, de andre fordelt annenhver side.
   const arranged = [];
   list.forEach((w, i) => (i % 2 ? arranged.push(w) : arranged.unshift(w)));
-  const palette = ['#3B2A00', '#C27C00', '#1F5FD1', '#1E8B3A', '#7A3BD9', '#D62839'];
+  const palette = ['#2A1D05', '#E07B10', '#1F5FD1', '#1E8B3A', '#7A3BD9', '#D62839'];
   return h('div', { class: 'cloud-wrap' },
     h('div', { class: 'cloud' }, arranged.map(([k, w], i) => h('button', {
       class: 'cloud-word', title: t('host.hideWord'),
@@ -587,14 +588,14 @@ function renderPodium(main) {
     all.length > 3 ? h('details', { class: 'all-results' }, h('summary', null, t('host.allResults')),
       h('ol', null, all.slice(3).map(p => h('li', { value: p.rank }, h('span', null, p.name), h('b', null, p.score))))) : null,
     h('div', { class: 'hfoot' },
-      all.length ? h('button', { class: 'btn ghost', onclick: downloadResults }, '⬇ ' + t('res.download')) : h('span', null),
+      all.length ? h('button', { class: 'btn ghost', onclick: downloadResults }, [icon('download'), t('res.download')]) : h('span', null),
       h('button', { class: 'btn primary big', onclick: endGame }, t('host.end'))));
   if (first) confetti();
 }
 
 function confetti() {
   const box = h('div', { class: 'confetti', 'aria-hidden': 'true' });
-  const colors = ['#E4BC5A', '#B8862A', '#D62839', '#1F5FD1', '#1E8B3A', '#7A3BD9'];
+  const colors = ['#FFD23F', '#FF8A1F', '#D62839', '#1F5FD1', '#1E8B3A', '#7A3BD9'];
   for (let i = 0; i < 90; i++) {
     box.append(h('i', { style: { left: Math.random() * 100 + '%', background: colors[i % colors.length], animationDelay: (Math.random() * 1.5) + 's', animationDuration: (2.5 + Math.random() * 2) + 's', transform: `rotate(${Math.random() * 360}deg)` } }));
   }
