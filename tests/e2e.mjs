@@ -20,6 +20,8 @@ const step = msg => console.log('•', msg);
 const browser = await chromium.launch();
 try {
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 820 } });
+  // Testene kjører alltid i demo-modus, aldri mot den ekte databasen.
+  await ctx.route('**/js/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "export const SUPABASE_URL = ''; export const SUPABASE_KEY = '';" }));
   ctx.on('page', p => {
     p.on('pageerror', e => errors.push(p.url() + ': ' + e.message));
     p.on('console', m => { if (m.type() === 'error' || /Mangler tekst/.test(m.text())) errors.push(p.url() + ': ' + m.text()); });

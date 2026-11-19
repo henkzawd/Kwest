@@ -15,6 +15,8 @@ const URL0 = `http://localhost:${PORT}/`;
 const browser = await chromium.launch();
 try {
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 820 } });
+  // Testene kjører alltid i demo-modus, aldri mot den ekte databasen.
+  await ctx.route('**/js/config.js', r => r.fulfill({ contentType: 'text/javascript', body: "export const SUPABASE_URL = ''; export const SUPABASE_KEY = '';" }));
   const host = await ctx.newPage();
   const errors = [];
   host.on('pageerror', e => errors.push(e.message));
