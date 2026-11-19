@@ -15,17 +15,14 @@ Kwest består av to deler:
 3. Finn **Kwest** i listen og trykk **Import**.
    - Ser du den ikke: trykk **Adjust GitHub App Permissions** (eller *Configure GitHub App*) og gi Vercel tilgang til repoet `Kwest`.
 4. På neste side:
-   - **Project Name:** skriv `kwest` (det er dette som gir adressen *kwest.vercel.app*).
    - **Framework Preset:** velg **Other**.
    - Ikke endre noe annet. Trykk **Deploy**.
-5. Når den er ferdig, trykk **Continue to Dashboard** og se hvilken adresse som står under **Domains**.
-   - Står det `kwest.vercel.app`: perfekt.
-   - Står det noe annet (f.eks. `kwest-abc123.vercel.app`), er navnet tatt av noen andre. Gå til **Settings** → **Domains**, trykk **Edit** på adressen og prøv `kwest.vercel.app`. Er den opptatt, velg f.eks. `kwest-ous.vercel.app` og si fra til Claude hvilken du fikk.
+5. Gå til **Settings** → **Domains**, trykk **Edit** på adressen og skriv `kwesting.vercel.app`.
 
 Vercel publiserer automatisk på nytt hver gang Claude oppdaterer hovedversjonen (main).
 
-Nettsiden blir: **https://kwest.vercel.app/**
-Lærersiden blir: **https://kwest.vercel.app/laerer.html**
+Nettsiden blir: **https://kwesting.vercel.app/**
+Lærersiden blir: **https://kwesting.vercel.app/laerer.html**
 
 ---
 
@@ -46,7 +43,7 @@ Lærersiden blir: **https://kwest.vercel.app/laerer.html**
    - Slå av **Confirm email** og trykk **Save**.
 5. **Fortell Supabase hvor nettsiden ligger:**
    - **Authentication** → **URL Configuration**.
-   - Skriv inn `https://kwest.vercel.app/laerer.html` i **Site URL** og trykk **Save**.
+   - Skriv inn `https://kwesting.vercel.app/laerer.html` i **Site URL** og trykk **Save**.
 6. **Hent de to tilkoblingsverdiene:**
    - Trykk **Connect** øverst på prosjektsiden (eller **Project Settings** → **API Keys**).
    - Kopier **Project URL** (ser ut som `https://abcdefgh.supabase.co`).
@@ -62,7 +59,7 @@ Claude legger verdiene inn i Kwest og publiserer på nytt.
 
 ## Del 3 – Første innlogging
 
-1. Gå til **https://kwest.vercel.app/laerer.html**
+1. Gå til **https://kwesting.vercel.app/laerer.html**
 2. Trykk **Lag konto** og lag kontoen din. **Den første kontoen blir automatisk administrator.**
 3. Inviter kolleger: gå til fanen **Brukere**, kopier lenken og send den til dem. Når de har laget konto, huker du av **Godkjent** ved navnet deres.
 
