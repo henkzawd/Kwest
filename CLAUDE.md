@@ -37,3 +37,6 @@ Keep completion messages short and non-technical: what changed (everyday languag
 
 Pull request-beskrivelser
 Pull request-beskrivelser skal være svært kortfattede, på enkel norsk og uten teknisk sjargong eller detaljer om de tekniske endringene. Skriv på et så høyt abstraksjonsnivå at en kliniker uten IT-bakgrunn raskt forstår hva som er gjort og hva det betyr for brukeren.
+
+Prosjektet
+Statisk nettside uten byggesteg (ren HTML/CSS/JS-moduler) publisert med GitHub Pages fra main; Supabase for innlogging, database og sanntid. Uten verdier i js/config.js kjører alt i demo-modus (localStorage + BroadcastChannel), som testene bruker. Biblioteker ligger i js/vendor/ (ikke CDN). Etter endringer: kjør `node tests/check-i18n.mjs` og `node tests/e2e.mjs`. All tekst i brukergrensesnittet skal finnes på både norsk og engelsk i js/i18n.js.
