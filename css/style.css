@@ -163,7 +163,7 @@ select { cursor: pointer; }
 .pbtn {
   border: 0; border-radius: 18px; color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; padding: 12px; font-weight: 700; text-shadow: 0 1px 1px rgba(0, 0, 0, .2); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .14);
-  min-height: 0; overflow: hidden; word-break: break-word; transition: transform .08s ease, filter .15s;
+  min-height: 0; overflow: hidden; overflow-wrap: break-word; hyphens: auto; transition: transform .08s ease, filter .15s;
 }
 .pbtn:active { transform: scale(.97); }
 .pbtn { position: relative; }
@@ -256,7 +256,10 @@ select { cursor: pointer; }
 .tile .shape svg { width: 100%; height: 100%; }
 .tile-text { flex: 1; z-index: 1; }
 .tile-check { z-index: 1; background: #fff; color: var(--ok); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 1.5rem; text-shadow: none; }
-.tile.dim { opacity: .35; }
+/* Gale svar: fortsatt godt synlige, bare litt dempet. Riktig svar får hvit ring. */
+.tile.dim { filter: saturate(.55) brightness(.92); }
+.tiles.revealed .tile:not(.dim) { box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--ok); }
+.tile-wrong { z-index: 1; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; background: rgba(0, 0, 0, .18); text-shadow: none; }
 
 .intro { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 16px; }
 .intro-mark .mark { animation: pop .4s ease; }
@@ -274,7 +277,7 @@ select { cursor: pointer; }
 .big-q { opacity: .18; }
 .bars { display: flex; align-items: flex-end; justify-content: center; gap: 22px; height: 34vh; min-height: 180px; }
 .bar-col { width: clamp(70px, 9vw, 130px); height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 6px; transition: opacity .3s; }
-.bar-col.dim { opacity: .35; }
+.bar-col.dim .bar, .bar-col.dim .bar-shape { filter: saturate(.55) brightness(.92); }
 .bar-n { text-align: center; font-size: 1.8rem; font-weight: 700; }
 
 .bar-area { flex: 1; display: flex; align-items: flex-end; min-height: 0; }

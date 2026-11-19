@@ -247,7 +247,8 @@ function answerView(st) {
         const pos = picked.indexOf(i);
         grid.append(h('button', {
           class: 'pbtn' + (pos >= 0 ? ' picked' : ''), style: { background: COLORS[i] },
-          onclick: () => { if (pos < 0) { picked.push(i); draw(); if (picked.length === q.labels.length) sendBtn.disabled = false; } },
+          // Trykk igjen på et valgt svar for å fjerne det (de etter rykker opp).
+          onclick: () => { if (pos < 0) picked.push(i); else picked.splice(pos, 1); draw(); },
         }, pos >= 0 ? h('span', { class: 'order-num' }, pos + 1) : h('span', { class: 'shape' }, svg(SHAPES[i])),
         h('span', { class: 'pbtn-text', style: { fontSize: fitSize(label) } }, label)));
       });
@@ -267,7 +268,11 @@ function answerView(st) {
 
 function fitSize(text) {
   const n = String(text).length;
-  return n > 80 ? '0.95rem' : n > 50 ? '1.1rem' : n > 25 ? '1.35rem' : '1.7rem';
+  // Lange enkeltord (f.eks. «Organsystem») skal få plass uten å deles midt i ordet.
+  const longest = Math.max(0, ...String(text).split(/\s+/).map(w => w.length));
+  const byLength = n > 80 ? 0.95 : n > 50 ? 1.1 : n > 25 ? 1.35 : 1.7;
+  const byWord = longest > 14 ? 0.95 : longest > 11 ? 1.1 : longest > 8 ? 1.25 : 1.7;
+  return Math.min(byLength, byWord) + 'rem';
 }
 
 function resultView(st) {

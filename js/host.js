@@ -449,6 +449,7 @@ function tiles(cur, opts = {}) {
         h('span', { class: 'shape' }, svg(SHAPES[colorIndex(cur.type, i)])),
         h('span', { class: 'tile-text' }, label),
         opts.reveal && correct ? h('span', { class: 'tile-check' }, '✓') : null,
+        opts.reveal && correct === false ? h('span', { class: 'tile-wrong' }, '✕') : null,
       );
     }));
 }

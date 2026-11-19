@@ -155,6 +155,7 @@ try {
   await p1.getByText('Riktig!').waitFor();
   await p2.getByText('Feil').waitFor();
   await host.waitForTimeout(900); await shot(host, '13-resultat');
+  if (!(await host.locator('.tile-wrong').count())) throw new Error('Gale svar er ikke merket');
   await shot(p1, '14-mobil-riktig');
   await shot(p2, '15-mobil-feil');
   await host.getByRole('button', { name: 'Neste' }).click();
@@ -199,6 +200,11 @@ try {
 
   // 7: rekkefølge
   await waitQ();
+  // Ola trykker feil, fjerner det igjen, og fullfører riktig
+  const organ = p1.locator('.pbtn').filter({ has: p1.locator('.pbtn-text', { hasText: /^Organ$/ }) });
+  await organ.click();
+  await organ.click();
+  if (await p1.locator('.pbtn.picked').count()) throw new Error('Klarte ikke å fjerne valgt svar');
   for (const w of ['Celle', 'Vev', 'Organ', 'Organsystem']) await p1.locator('.pbtn', { hasText: new RegExp('^' + w + '$') }).click();
   await shot(p1, '20-mobil-rekkefolge');
   await p1.getByRole('button', { name: 'Send' }).click();
