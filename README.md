@@ -36,6 +36,7 @@ Kwest er testet med 60 elever i samme spill.
 | Tallsvar | Gjetter et tall med en glidebryter (med slingringsmonn) |
 | Rekkefølge | Trykker alternativene i riktig rekkefølge |
 | Infoside | Bare tekst og bilde – til introduksjon eller oppsummering |
+| Poengtavle | Viser stillingen så langt – legg den inn der du vil, f.eks. halvveis |
 
 Andre funksjoner: lyd på spørsmål og infosider (lenke eller opplastet .mp3/.wav), kopiere kollegers kwest til sine egne, nedlasting av resultater, poengtavle mellom spørsmålene, «riktige på rad», dobbel poeng, stokking av svaralternativer, låsing av spillet, fjerne elever, fullskjerm, norsk og engelsk.
 

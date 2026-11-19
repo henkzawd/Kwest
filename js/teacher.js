@@ -444,6 +444,11 @@ function typePicker() {
   m = modal(t('ed.addQuestion').replace('+', '').trim(), h('div', { class: 'type-grid' }, TYPES.map(type => h('button', { class: 'type-item', onclick: () => {
     m.close();
     E.quiz.questions.splice(E.sel + 1, 0, newQuestion(type));
+    // Egen poengtavle-side: da skal den ikke i tillegg vises automatisk etter hvert spørsmål.
+    if (type === 'scoreboard' && E.quiz.settings.leaderboard !== false) {
+      E.quiz.settings.leaderboard = false;
+      toast(t('ed.autoBoardOff'));
+    }
     E.sel++;
     changed(); drawList(); drawPanel();
   } }, h('span', { class: 'type-icon' }, TYPE_ICONS[type]), h('span', null, h('b', null, t('type.' + type)), h('small', null, t('typeDesc.' + type)))))));
@@ -460,7 +465,7 @@ function drawList() {
       h('span', { class: 'qitem-n' }, i + 1),
       h('div', { class: 'qitem-body' },
         h('span', { class: 'qitem-type' }, TYPE_ICONS[q.type] + ' ' + t('type.' + q.type)),
-        h('span', { class: 'qitem-text' }, q.text || '…')),
+        h('span', { class: 'qitem-text' }, q.type === 'scoreboard' ? t('ed.scoreboardShort') : q.text || '…')),
       q.image ? h('img', { class: 'qitem-img', src: q.image, alt: '' }) : null));
   });
 }
@@ -493,12 +498,13 @@ function drawPanel() {
     if (texts && fresh.options) fresh.options = texts.map((text, i) => (type === 'quiz' ? { text, correct: q.options ? !!q.options[i]?.correct : i === 0 } : { text }));
     if (texts && fresh.items) fresh.items = texts.slice();
     E.quiz.questions[E.sel] = fresh;
+    if (type === 'scoreboard' && E.quiz.settings.leaderboard !== false) { E.quiz.settings.leaderboard = false; toast(t('ed.autoBoardOff')); }
     rerender();
   };
 
   const tools = h('div', { class: 'panel-tools' },
     h('label', { class: 'field' }, h('span', null, t('ed.type')), select(TYPES.map(x => [x, TYPE_ICONS[x] + ' ' + t('type.' + x)]), q.type, changeType, ro)),
-    q.type !== 'info' ? h('label', { class: 'field' }, h('span', null, t('ed.time')), select(TIMES.map(s => [s, t('ed.seconds', { n: s })]), q.time, v => { q.time = Number(v); changed(); }, ro)) : null,
+    q.type !== 'info' && q.type !== 'scoreboard' ? h('label', { class: 'field' }, h('span', null, t('ed.time')), select(TIMES.map(s => [s, t('ed.seconds', { n: s })]), q.time, v => { q.time = Number(v); changed(); }, ro)) : null,
     ['quiz', 'truefalse', 'short', 'slider', 'order'].includes(q.type) ? h('label', { class: 'field' }, h('span', null, t('ed.points')),
       select([['standard', t('ed.pStandard')], ['double', t('ed.pDouble')], ['none', t('ed.pNone')]], q.points, v => { q.points = v; changed(); }, ro)) : null,
     h('span', { class: 'spacer' }),
@@ -517,6 +523,12 @@ function drawPanel() {
     oninput: e => { q.text = e.target.value; changed(); refreshItem(); } });
   text.value = q.text;
 
+  if (q.type === 'scoreboard') {
+    panel.append(tools, h('div', { class: 'q-slide board-slide' },
+      h('div', { class: 'board-preview' }, questionSvg(46), exclamationSvg(46)),
+      h('p', null, t('ed.scoreboardInfo'))));
+    return;
+  }
   panel.append(tools,
     h('div', { class: 'q-slide' },
       h('div', { class: 'q-slide-head' }, h('span', { class: 'q-mark' }, q.type === 'info' ? exclamationSvg(40) : questionSvg(40)), text),

@@ -519,3 +519,8 @@ select { cursor: pointer; }
 .trail-list .trail-label { position: static; }
 .trail-rank.static { position: static; flex: none; }
 .trail-rank.gold { background: linear-gradient(180deg, #FFE14D, #FFA41F); border-color: #fff; }
+
+/* Egen poengtavle-side i redigeringen */
+.board-slide { align-items: center; text-align: center; padding: 40px 22px; background: linear-gradient(180deg, #CFE9F8, #FFF4DC); }
+.board-preview { display: flex; gap: 8px; }
+.board-slide p { max-width: 520px; margin: 0; font-size: 1.05rem; }

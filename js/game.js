@@ -11,8 +11,8 @@ export const SHAPES = [
 ];
 
 // Rekkefølgen her er rekkefølgen i «Nytt spørsmål»-menyen.
-export const TYPES = ['quiz', 'truefalse', 'short', 'poll', 'wordcloud', 'slider', 'order', 'info'];
-export const TYPE_ICONS = { quiz: '▦', truefalse: '◐', short: '✎', poll: '▥', wordcloud: '☁', slider: '⇔', order: '⇅', info: 'ℹ' };
+export const TYPES = ['quiz', 'truefalse', 'short', 'poll', 'wordcloud', 'slider', 'order', 'info', 'scoreboard'];
+export const TYPE_ICONS = { quiz: '▦', truefalse: '◐', short: '✎', poll: '▥', wordcloud: '☁', slider: '⇔', order: '⇅', info: 'ℹ', scoreboard: '⛰' };
 export const TIMES = [5, 10, 20, 30, 45, 60, 90, 120, 240];
 export const SCORED = ['quiz', 'truefalse', 'short', 'slider', 'order'];
 
@@ -27,6 +27,7 @@ export function newQuestion(type = 'quiz') {
     case 'slider': Object.assign(q, { min: 0, max: 100, step: 1, correct: 50, tolerance: 5, unit: '' }); q.time = 30; break;
     case 'order': q.items = ['', '', '', '']; q.time = 30; break;
     case 'info': q.points = 'none'; q.time = 0; break;
+    case 'scoreboard': q.points = 'none'; q.time = 0; break;
   }
   return q;
 }
@@ -68,6 +69,7 @@ const TYPE_ALIASES = {
   slider: 'slider', number: 'slider', glidebryter: 'slider', tall: 'slider',
   order: 'order', puzzle: 'order', ordering: 'order', rekkefolge: 'order', 'rekkefølge': 'order',
   info: 'info', slide: 'info', content: 'info', infoside: 'info',
+  scoreboard: 'scoreboard', leaderboard: 'scoreboard', poengtavle: 'scoreboard',
 };
 
 export function normalizeQuestion(r) {
@@ -118,7 +120,7 @@ export function normalizeQuestion(r) {
     q.items = it.slice(0, 4).map(o => (typeof o === 'object' && o ? str(o.text) : str(o)));
     while (q.items.length < 2) q.items.push('');
   }
-  if (type === 'info') { q.time = 0; q.points = 'none'; }
+  if (type === 'info' || type === 'scoreboard') { q.time = 0; q.points = 'none'; }
   if (type === 'poll' || type === 'wordcloud') q.points = 'none';
   return q;
 }
@@ -139,7 +141,7 @@ export function validateQuiz(quiz) {
   const issues = [];
   quiz.questions.forEach((q, i) => {
     const add = key => issues.push({ index: i, key });
-    if (!q.text.trim() && !q.image && !q.audio && q.type !== 'info') add('val.noText');
+    if (!q.text.trim() && !q.image && !q.audio && q.type !== 'info' && q.type !== 'scoreboard') add('val.noText');
     if (q.type === 'quiz') {
       const filled = q.options.filter(o => o.text.trim());
       if (filled.length < 2) add('val.twoOptions');

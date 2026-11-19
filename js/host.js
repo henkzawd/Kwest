@@ -188,7 +188,8 @@ function next() {
   if (G.phase === 'lobby') return goTo(0);
   if (G.phase === 'question') return reveal();
   const last = G.qi >= total() - 1;
-  if (G.phase === 'reveal' && quiz.settings?.leaderboard !== false && !last && SCORED.includes(q().type) && playerIds().length) {
+  const nextIsBoard = !last && quiz.questions[G.qi + 1]?.type === 'scoreboard';
+  if (G.phase === 'reveal' && quiz.settings?.leaderboard !== false && !last && !nextIsBoard && SCORED.includes(q().type) && playerIds().length) {
     G.phase = 'scoreboard';
     return commit(false); // mobilene viser allerede plasseringen sin
   }
@@ -205,6 +206,8 @@ function goTo(i) {
   G.hidden = [];
   const cur = q();
   if (cur.type === 'info') { G.phase = 'info'; return commit(); }
+  // Egen poengtavle-side lagt inn av læreren: mobilene får vite plasseringen sin.
+  if (cur.type === 'scoreboard') { G.phase = 'scoreboard'; return commit(); }
   prepareQuestion(cur);
   G.phase = 'intro';
   G.introEnd = Date.now() + INTRO_MS;
@@ -293,7 +296,7 @@ function downloadResults() {
     const s = String(v ?? '');
     return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
-  const qsAll = quiz.questions.map((x, i) => ({ q: playable(x), i })).filter(x => x.q.type !== 'info');
+  const qsAll = quiz.questions.map((x, i) => ({ q: playable(x), i })).filter(x => x.q.type !== 'info' && x.q.type !== 'scoreboard');
   const head = [t('res.place'), t('res.name'), t('res.score'), t('res.correct'),
     ...qsAll.map(x => `${x.i + 1}. ${(x.q.text || t('type.' + x.q.type)).replace(/\s+/g, ' ').slice(0, 60)}`)];
   const rows = ranked().map(p => {

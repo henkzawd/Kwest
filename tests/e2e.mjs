@@ -12,7 +12,10 @@ const SHOTS = process.env.SHOTS || '';
 const server = spawn('python3', ['-m', 'http.server', String(PORT)], { cwd: ROOT, stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 800));
 const URL0 = `http://localhost:${PORT}/`;
-const quizJson = readFileSync(ROOT + 'eksempler/eksempel-kwest.json', 'utf8');
+// Testen legger inn en egen poengtavle-side etter kortsvar-spørsmålet.
+const quizObj = JSON.parse(readFileSync(ROOT + 'eksempler/eksempel-kwest.json', 'utf8'));
+quizObj.questions.splice(5, 0, { type: 'scoreboard' });
+const quizJson = JSON.stringify(quizObj);
 const errors = [];
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png` }); };
 const step = msg => console.log('•', msg);
@@ -50,11 +53,15 @@ try {
   await teacher.getByRole('button', { name: '+ Legg til' }).click();
   await shot(teacher, '03-typemeny');
   await teacher.locator('.type-item').filter({ hasText: 'Ordsky' }).click();
+  await teacher.getByRole('button', { name: '+ Legg til' }).click();
+  await teacher.locator('.type-item').filter({ hasText: 'Poengtavle' }).click();
+  await teacher.getByText('Poengtavlen vises nå bare der du legger den inn').waitFor();
+  await teacher.locator('.board-slide').waitFor();
   await teacher.waitForTimeout(1500);
   await teacher.getByRole('link', { name: '← Tilbake' }).click();
   await teacher.locator('.card').filter({ hasText: 'Min første' }).waitFor();
   const meta = await teacher.locator('.card').filter({ hasText: 'Min første' }).locator('.card-meta').textContent();
-  if (!meta.includes('2 spørsmål')) throw new Error('Forventet 2 spørsmål, fikk: ' + meta);
+  if (!meta.includes('3 spørsmål')) throw new Error('Forventet 2 spørsmål, fikk: ' + meta);
   step('Laget og lagret Kwest for hånd');
 
   // AI-dialogen
@@ -63,9 +70,9 @@ try {
   await teacher.locator('.modal textarea').fill('Her er quizen din:\n```json\n' + quizJson + '\n```');
   await teacher.locator('.modal').getByRole('button', { name: 'Importer' }).click();
   await teacher.locator('.title-input').waitFor();
-  if ((await teacher.locator('.qitem').count()) !== 8) throw new Error('Import ga feil antall spørsmål');
+  if ((await teacher.locator('.qitem').count()) !== 9) throw new Error('Import ga feil antall spørsmål');
   step('Importerte Kwest via AI-dialogen');
-  await teacher.locator('.qitem').nth(5).click();
+  await teacher.locator('.qitem').nth(6).click();
   await shot(teacher, '05-editor-slider');
   // Lydfil på flervalgsspørsmålet (en kort WAV laget her)
   await teacher.locator('.qitem').nth(2).click();
@@ -172,6 +179,10 @@ try {
   await p2.getByText('Feil').waitFor();
   await shot(host, '17-kortsvar');
   await host.getByRole('button', { name: 'Neste' }).click();
+  // Egen poengtavle-side
+  await host.locator('.trail-scene').waitFor();
+  await p1.getByText('Du er på 1. plass').waitFor();
+  step('Egen poengtavle-side vises, og mobilen viser plassering');
   await host.getByRole('button', { name: 'Neste' }).click();
 
   // 6: tallsvar – Ola 206, Kari lar tiden løpe ut? Nei: Kari svarer 150
