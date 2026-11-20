@@ -292,7 +292,9 @@ export function aiPrompt(n, extra, language) {
     '- For "poll" og "wordcloud" (uten fasit): skriv et kort faglig poeng eller en refleksjon knyttet til spørsmålet.',
     extra ? `- Ekstra ønsker fra læreren: ${extra}` : null,
     '',
-    'Svar KUN med gyldig JSON i nøyaktig dette formatet (ingen annen tekst før eller etter):',
+    'SVARFORMAT: Svar med gyldig JSON i nøyaktig formatet under. Legg HELE svaret i ÉN kodeblokk som starter med ```json og slutter med ``` (slik at det får en kopieringsknapp). Ingen annen tekst før eller etter kodeblokken, og ikke lag et eget dokument eller artifact.',
+    '',
+    'Format:',
   ] : [
     'Create a quiz for the teaching app Kwest based on the material I have attached (PowerPoint, PDF, article, etc.).',
     '',
@@ -311,7 +313,9 @@ export function aiPrompt(n, extra, language) {
     '- For "poll" and "wordcloud" (no right answer): write a short teaching point or reflection related to the question.',
     extra ? `- Extra wishes from the teacher: ${extra}` : null,
     '',
-    'Reply ONLY with valid JSON in exactly this format (no other text before or after):',
+    'ANSWER FORMAT: Reply with valid JSON in exactly the format below. Put the ENTIRE answer in ONE code block that starts with ```json and ends with ``` (so it gets a copy button). No other text before or after the code block, and do not create a separate document or artifact.',
+    '',
+    'Format:',
   ];
   const ex = (o) => ({ ...o, explanation: EXP });
   const example = {
@@ -331,10 +335,14 @@ export function aiPrompt(n, extra, language) {
     '',
     'Merknader til feltene: "time" er sekunder (5–240). "order": skriv elementene i RIKTIG rekkefølge (2–4 stk). "slider": "tolerance" er hvor langt unna som regnes som riktig. "short": list alle skrivemåter som skal godtas. "info" er en ren tekstside uten spørsmål og uten "explanation".',
     'Sjekk til slutt at hvert spørsmål unntatt "info" har en utfylt "explanation".',
+    '',
+    'HUSK: Hele svaret skal stå i én kodeblokk som starter med ```json – ingenting annet.',
   ] : [
     '',
     'Field notes: "time" is seconds (5–240). "order": list the items in the CORRECT order (2–4). "slider": "tolerance" is how far off still counts as correct. "short": list every spelling to accept. "info" is a plain text slide without a question and without "explanation".',
     'Finally, check that every question except "info" has a filled-in "explanation".',
+    '',
+    'REMEMBER: The entire answer must be in one code block starting with ```json – nothing else.',
   ];
   return [...lines.filter(l => l !== null), JSON.stringify(example, null, 1), ...notes].join('\n');
 }
