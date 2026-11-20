@@ -276,6 +276,40 @@ try {
   await host.locator('.fb-count').filter({ hasText: '1' }).waitFor();
   step('Tilbakemeldinger fungerer');
 
+  // Etiketter, spørsmålsbank og angre
+  await host.getByRole('link', { name: 'Mine kwest' }).click();
+  const card1 = host.locator('.card').filter({ hasText: 'Min første' });
+  await card1.locator('.menu-wrap .icon-btn').click();
+  await card1.getByRole('menuitem', { name: 'Etiketter' }).click();
+  await host.locator('.modal .label-editor input').fill('Farmakologi');
+  await host.locator('.modal .label-editor input').press('Enter');
+  await host.locator('.modal').getByRole('button', { name: 'Lagre' }).click();
+  await host.locator('.label-filter .label-chip', { hasText: 'Farmakologi' }).click();
+  await host.locator('.card').first().waitFor();
+  if ((await host.locator('.card').count()) !== 1) throw new Error('Etikettfilteret viser feil antall kwest');
+  await shot(host, '25-etiketter');
+  await host.locator('.label-filter .label-chip', { hasText: 'Alle' }).click();
+  step('Etiketter og filter fungerer');
+  await host.locator('.card').filter({ hasText: 'Min første' }).getByRole('link', { name: 'Rediger' }).click();
+  await host.locator('.qitem').nth(2).waitFor();
+  await host.getByRole('button', { name: /Hent fra andre kwest/ }).click();
+  await host.locator('.modal .bank-list').waitFor();
+  await host.locator('.modal input[type=search]').fill('kamre');
+  await host.locator('.modal .bank-item').first().click();
+  await shot(host, '26-sporsmalsbank');
+  await host.locator('.modal').getByRole('button', { name: 'Legg til (1)' }).click();
+  if ((await host.locator('.qitem').count()) !== 4) throw new Error('Spørsmålsbanken la ikke til spørsmålet');
+  await host.locator('.undo-btn').click();
+  if ((await host.locator('.qitem').count()) !== 3) throw new Error('Angre virket ikke');
+  await host.locator('.redo-btn').click();
+  if ((await host.locator('.qitem').count()) !== 4) throw new Error('Gjør om virket ikke');
+  await host.locator('.qitem').nth(0).click();
+  await host.getByPlaceholder('Skriv spørsmålet her').fill('Hva er 3 + 3?');
+  await host.evaluate(() => document.activeElement.blur());
+  await host.keyboard.press('Control+z');
+  if ((await host.getByPlaceholder('Skriv spørsmålet her').inputValue()) !== 'Hva er 2 + 2?') throw new Error('Ctrl+Z angret ikke skrivingen');
+  step('Spørsmålsbank, angre og gjør om fungerer');
+
   // Engelsk
   await p2.goto(URL0);
   await p2.getByRole('button', { name: 'English' }).click();

@@ -40,13 +40,25 @@ function supabaseBackend() {
 
     // «Privat» krever en ny kolonne i databasen. Finnes den ikke ennå, virker alt annet som før.
     hasPrivate: true,
+    hasLabels: true,
     async listQuizzes() {
-      let res = await client.from('quizzes').select(this.hasPrivate ? LIST_COLS + ',is_private' : LIST_COLS).order('updated_at', { ascending: false });
+      const cols = () => (this.hasLabels ? LIST_COLS + ',labels:data->labels' : LIST_COLS) + (this.hasPrivate ? ',is_private' : '');
+      let res = await client.from('quizzes').select(cols()).order('updated_at', { ascending: false });
       if (res.error && /is_private/.test(res.error.message || '')) {
         this.hasPrivate = false;
-        res = await client.from('quizzes').select(LIST_COLS).order('updated_at', { ascending: false });
+        res = await client.from('quizzes').select(cols()).order('updated_at', { ascending: false });
+      }
+      // Skulle etikettene ikke kunne hentes, virker listen likevel (bare uten etiketter).
+      if (res.error && this.hasLabels) {
+        this.hasLabels = false;
+        res = await client.from('quizzes').select(cols()).order('updated_at', { ascending: false });
       }
       const rows = ok(res);
+      return rows.map(r => ({ ...r, labels: Array.isArray(r.labels) ? r.labels : [], owner_name: r.profiles?.name || r.profiles?.email || '' }));
+    },
+    // Alle kwest med spørsmål (til spørsmålsbanken).
+    async listBank() {
+      const rows = ok(await client.from('quizzes').select('id,title,owner,data,updated_at,profiles(name,email)').order('updated_at', { ascending: false }));
       return rows.map(r => ({ ...r, owner_name: r.profiles?.name || r.profiles?.email || '' }));
     },
     async getQuiz(id) {
@@ -152,6 +164,14 @@ function demoBackend() {
       const us = users();
       const meId = current();
       return quizzes().filter(q => !q.is_private || q.owner === meId).map(({ data, ...q }) => {
+        const o = us.find(u => u.id === q.owner);
+        return { ...q, labels: Array.isArray(data?.labels) ? data.labels : [], owner_name: o?.name || o?.email || '' };
+      }).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    },
+    async listBank() {
+      const us = users();
+      const meId = current();
+      return quizzes().filter(q => !q.is_private || q.owner === meId).map(q => {
         const o = us.find(u => u.id === q.owner);
         return { ...q, owner_name: o?.name || o?.email || '' };
       }).sort((a, b) => b.updated_at.localeCompare(a.updated_at));

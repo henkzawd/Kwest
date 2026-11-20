@@ -164,15 +164,33 @@ async function listView(which) {
   catch (e) { return shell(h('p', { class: 'form-error' }, errMsg(e)), which); }
   const mine = rows.filter(r => r.owner === me.user.id);
   const base = which === 'mine' ? mine : rows;
+  knownLabels = labelsOf(mine);
   const search = h('input', { type: 'search', class: 'search', placeholder: t('list.search'), oninput: () => draw() });
   const grid = h('div', { class: 'cards' });
+  // Etiketter: trykk for å vise bare kwest med den etiketten.
+  let active = (() => { try { return localStorage.getItem('kwest-label-' + which) || ''; } catch { return ''; } })();
+  const labels = labelsOf(base);
+  if (!labels.some(l => l.toLowerCase() === active.toLowerCase())) active = '';
+  const filters = h('div', { class: 'label-filter' });
+  const drawFilters = () => {
+    clear(filters);
+    if (!labels.length) return;
+    filters.append(icon('tag', 16), ...[[t('labels.all'), ''], ...labels.map(l => [l, l])].map(([name, v]) =>
+      h('button', { class: 'label-chip' + (active === v ? ' on' : ''), onclick: () => {
+        active = v;
+        try { localStorage.setItem('kwest-label-' + which, v); } catch { /* ignorer */ }
+        drawFilters(); draw();
+      } }, name)));
+  };
   const draw = () => {
     const s = search.value.trim().toLowerCase();
-    const list = base.filter(r => !s || (r.title + ' ' + (r.description || '') + ' ' + (r.owner_name || '')).toLowerCase().includes(s));
+    const list = base.filter(r => (!s || (r.title + ' ' + (r.description || '') + ' ' + (r.owner_name || '') + ' ' + (r.labels || []).join(' ')).toLowerCase().includes(s))
+      && (!active || (r.labels || []).some(l => l.toLowerCase() === active.toLowerCase())));
     clear(grid);
     if (!list.length) grid.append(h('div', { class: 'empty' }, questionSvg(70), h('p', null, which === 'mine' && !s ? t('list.emptyMine') : t('list.empty'))));
     list.forEach(r => grid.append(card(r, () => listView(which))));
   };
+  drawFilters();
   draw();
   shell(h('div', null,
     h('div', { class: 'list-head' },
@@ -182,7 +200,67 @@ async function listView(which) {
       h('button', { class: 'btn ghost', onclick: () => importDialog() }, [icon('upload'), t('list.import')]),
       h('button', { class: 'btn ghost', onclick: () => aiDialog() }, [icon('sparkle'), t('list.ai')]),
       h('a', { class: 'btn primary', href: '#/ny' }, '+ ' + t('list.new'))),
+    filters,
     grid), which);
+}
+
+// ---------- Etiketter (mapper) ----------
+let knownLabels = [];
+function cleanLabels(list) {
+  const out = [];
+  for (const raw of list || []) {
+    const l = String(raw ?? '').replace(/\s+/g, ' ').trim().slice(0, 30);
+    if (l && !out.some(x => x.toLowerCase() === l.toLowerCase())) out.push(l);
+  }
+  return out.slice(0, 8);
+}
+function labelsOf(rows) {
+  const out = [];
+  for (const l of rows.flatMap(r => r.labels || [])) if (!out.some(x => x.toLowerCase() === String(l).toLowerCase())) out.push(String(l));
+  return out.sort((a, b) => a.localeCompare(b, 'nb'));
+}
+
+// Felt for å legge til og fjerne etiketter. onChange får den nye listen.
+function labelEditor(initial, onChange) {
+  let list = cleanLabels(initial);
+  const chips = h('div', { class: 'label-chips' });
+  const listId = 'labels-' + uid(6);
+  const input = h('input', { type: 'text', maxlength: '30', list: listId, placeholder: t('labels.addPh'),
+    onkeydown: e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); } } });
+  const add = () => {
+    const v = input.value.replace(/,/g, ' ').trim();
+    if (!v) return;
+    list = cleanLabels([...list, v]);
+    input.value = '';
+    draw(); onChange(list);
+  };
+  const draw = () => {
+    clear(chips);
+    list.forEach(l => chips.append(h('span', { class: 'label-chip on' }, l,
+      h('button', { class: 'label-x', type: 'button', 'aria-label': t('common.delete') + ' ' + l, onclick: () => { list = list.filter(x => x !== l); draw(); onChange(list); } }, '✕'))));
+    if (!list.length) chips.append(h('span', { class: 'muted small-text' }, t('labels.none')));
+  };
+  draw();
+  return h('div', { class: 'stack label-editor' }, chips,
+    h('div', { class: 'row' }, input, h('button', { class: 'btn ghost small', type: 'button', onclick: add }, t('labels.add'))),
+    h('datalist', { id: listId }, knownLabels.map(l => h('option', { value: l }))),
+    h('small', { class: 'muted' }, t('labels.help')));
+}
+
+async function labelsDialog(r, refresh) {
+  try {
+    const full = await backend.getQuiz(r.id);
+    let next = full.data?.labels || [];
+    modal(t('labels.title'), labelEditor(next, l => { next = l; }), [
+      h('button', { class: 'btn primary', onclick: async e => {
+        e.target.closest('.modal-wrap').remove();
+        try {
+          await backend.saveQuiz({ id: full.id, title: full.title, description: full.description, data: { ...full.data, labels: next } });
+          refresh();
+        } catch (err) { toast(errMsg(err), 'bad'); }
+      } }, t('common.save')),
+    ]);
+  } catch (e) { toast(errMsg(e), 'bad'); }
 }
 
 function canEdit(row) { return row.owner === me.user.id || me.profile.is_admin; }
@@ -195,6 +273,7 @@ function card(r, refresh) {
       h('div', null,
         h('h3', null, r.is_private ? h('span', { class: 'priv', title: t('ed.privateBadge') }, icon('lock', 15)) : null, r.title || t('list.untitled')),
         r.description ? h('p', { class: 'card-desc' }, r.description) : null,
+        r.labels?.length ? h('p', { class: 'card-labels' }, r.labels.map(l => h('span', { class: 'label-chip small' }, l))) : null,
         h('p', { class: 'card-meta' }, t('list.questions', { n: r.question_count ?? '?' }),
           r.owner !== me.user.id && r.owner_name ? ' · ' + t('list.by', { name: r.owner_name }) : '',
           ' · ' + fmtDate(r.updated_at, lang)))),
@@ -205,6 +284,7 @@ function card(r, refresh) {
         : h('button', { class: 'btn ghost small', onclick: () => copyQuiz(r) }, t('list.copy')),
       moreMenu([
         editable ? [t('list.copy'), () => copyQuiz(r)] : null,
+        editable ? [t('labels.title'), () => labelsDialog(r, refresh)] : null,
         [t('list.export'), () => exportRow(r)],
         editable ? [t('list.delete'), async () => {
           if (!(await confirmBox(t('list.delete'), t('list.deleteConfirm', { title: r.title }), t('common.delete'), t('common.cancel')))) return;
@@ -370,7 +450,7 @@ function aiDialog() {
 }
 
 // ---------- Redigering ----------
-const E = { id: null, owner: null, readonly: false, quiz: null, sel: 0, dirty: false, saving: null, pending: false };
+const E = { id: null, owner: null, readonly: false, quiz: null, sel: 0, dirty: false, saving: null, pending: false, undo: [], redo: [], cur: '', groupAt: 0, groupEl: null };
 
 function leaveGuard() {
   // Lagre umiddelbart hvis noe er ulagret når man går bort fra redigeringen.
@@ -387,7 +467,7 @@ async function editorView(id) {
       const row = await backend.getQuiz(id);
       E.owner = row.owner;
       E.readonly = !canEdit(row);
-      E.quiz = { title: row.title, description: row.description || '', is_private: !!row.is_private, settings: { leaderboard: true, shuffle: false, ...(row.data?.settings || {}) }, questions: row.data?.questions || [] };
+      E.quiz = { title: row.title, description: row.description || '', is_private: !!row.is_private, labels: cleanLabels(row.data?.labels), settings: { leaderboard: true, shuffle: false, ...(row.data?.settings || {}) }, questions: row.data?.questions || [] };
       E.quiz.questions.forEach(q => { q.id ||= uid(8); });
       if (!E.quiz.questions.length) E.quiz.questions.push(newQuestion('quiz'));
       if (E.readonly) {
@@ -396,12 +476,64 @@ async function editorView(id) {
       }
     } catch (e) { return shell(h('p', { class: 'form-error' }, errMsg(e))); }
   }
+  Object.assign(E, { undo: [], redo: [], cur: snapshot(), groupAt: 0, groupEl: null });
   drawEditor();
 }
+
+// ---------- Angre / gjør om ----------
+// Skriving i samme felt samles til ett angresteg; alt annet (slette, flytte, legge til …) er egne steg.
+function snapshot() {
+  const { title, description, is_private, labels, settings, questions } = E.quiz;
+  return JSON.stringify({ title, description, is_private, labels, settings, questions });
+}
+function recordUndo() {
+  const snap = snapshot();
+  if (snap === E.cur) return;
+  const el = document.activeElement;
+  const typing = el && el === E.groupEl && el.matches('textarea, input:not([type=checkbox]):not([type=file])') && Date.now() - E.groupAt < 1500;
+  if (!typing) {
+    E.undo.push(E.cur);
+    if (E.undo.length > 60) E.undo.shift();
+  }
+  E.groupEl = el; E.groupAt = Date.now();
+  E.cur = snap;
+  E.redo = [];
+  updateUndoButtons();
+}
+function undo(back = true) {
+  if (E.readonly) return;
+  const from = back ? E.undo : E.redo, to = back ? E.redo : E.undo;
+  if (!from.length) return;
+  to.push(E.cur);
+  E.cur = from.pop();
+  Object.assign(E.quiz, JSON.parse(E.cur));
+  E.groupEl = null;
+  E.sel = Math.max(0, Math.min(E.sel, E.quiz.questions.length - 1));
+  E.dirty = true;
+  autosave();
+  drawEditor();
+  setStatus('unsaved');
+  toast(back ? t('ed.undone') : t('ed.redone'));
+}
+function updateUndoButtons() {
+  const u = document.querySelector('.undo-btn'), r = document.querySelector('.redo-btn');
+  if (u) u.disabled = !E.undo.length;
+  if (r) r.disabled = !E.redo.length;
+}
+document.addEventListener('keydown', e => {
+  if (!document.querySelector('.ed-panel') || E.readonly || !(e.ctrlKey || e.metaKey)) return;
+  const k = e.key.toLowerCase();
+  if (k !== 'z' && k !== 'y') return;
+  // Inne i et tekstfelt angrer nettleseren selv skrivingen.
+  if (e.target.matches('input, textarea') || document.querySelector('.modal-wrap')) return;
+  e.preventDefault();
+  undo(!(k === 'y' || e.shiftKey));
+});
 
 const autosave = debounce(() => saveNow(), 1200);
 function changed() {
   if (E.readonly) return;
+  recordUndo();
   E.dirty = true;
   setStatus('unsaved');
   autosave();
@@ -413,7 +545,7 @@ async function saveNow() {
   E.dirty = false;
   setStatus('saving');
   const q = E.quiz;
-  const payload = { id: E.id, title: q.title.trim() || t('list.untitled'), description: q.description.trim(), is_private: !!q.is_private, data: { settings: q.settings, questions: q.questions } };
+  const payload = { id: E.id, title: q.title.trim() || t('list.untitled'), description: q.description.trim(), is_private: !!q.is_private, data: { settings: q.settings, questions: q.questions, labels: cleanLabels(q.labels) } };
   E.saving = backend.saveQuiz(payload).then(r => {
     if (!E.id) {
       E.id = r.id;
@@ -448,12 +580,16 @@ function drawEditor() {
       title,
       h('span', { class: 'save-status', 'data-s': 'saved' }, E.id ? '✓ ' + t('ed.saved') : ''),
       E.quiz.is_private ? h('span', { class: 'priv-chip' }, icon('lock', 14), t('ed.privateBadge')) : null,
+      E.readonly ? null : h('div', { class: 'undo-group' },
+        h('button', { class: 'icon-btn undo-btn', title: t('ed.undo'), 'aria-label': t('ed.undo'), disabled: !E.undo.length, onclick: () => undo(true) }, icon('undo')),
+        h('button', { class: 'icon-btn redo-btn', title: t('ed.redo'), 'aria-label': t('ed.redo'), disabled: !E.redo.length, onclick: () => undo(false) }, icon('redo'))),
       h('button', { class: 'btn ghost', onclick: settingsDialog, disabled: E.readonly }, '⚙ ' + t('ed.settings')),
       E.readonly ? h('button', { class: 'btn ghost', onclick: () => copyQuiz({ id: E.id }) }, t('list.copy')) : null,
       startBtn),
     E.readonly ? h('p', { class: 'notice' }, t('ed.readonly', { name: E.ownerName || '?' })) : null,
     h('div', { class: 'ed-body' },
-      h('aside', { class: 'ed-side' }, h('ol', { class: 'qlist' }), E.readonly ? null : addButton()),
+      h('aside', { class: 'ed-side' }, h('ol', { class: 'qlist' }), E.readonly ? null : addButton(),
+        E.readonly ? null : h('button', { class: 'btn ghost small bank-btn', onclick: bankDialog }, [icon('bank', 16), t('bank.button')])),
       h('section', { class: 'ed-panel' }))));
   drawList();
   drawPanel();
@@ -720,12 +856,71 @@ function typeEditor(q, ro, rerender) {
   }
 }
 
+// ---------- Spørsmålsbank: hent enkeltspørsmål fra andre kwest ----------
+async function bankDialog() {
+  const body = h('div', { class: 'stack bank' }, h('div', { class: 'spinner' }));
+  const addBtn = h('button', { class: 'btn primary', disabled: true }, t('bank.add', { n: 0 }));
+  const m = modal(t('bank.title'), body, [addBtn]);
+  m.el.querySelector('.modal').classList.add('wide');
+  let rows;
+  try { rows = await backend.listBank(); }
+  catch (e) { clear(body).append(h('p', { class: 'form-error' }, errMsg(e))); return; }
+  const picked = new Map(); // nøkkel -> spørsmål
+  const items = [];
+  for (const r of rows) {
+    if (r.id === E.id) continue;
+    (r.data?.questions || []).forEach((q, i) => {
+      if (!q || q.type === 'scoreboard') return;
+      const hay = [q.text, q.explanation, ...(q.options || []).map(o => o.text), ...(q.items || []), ...(q.answers || [])].join(' ').toLowerCase();
+      items.push({ key: r.id + ':' + i, q, quiz: r, hay: hay + ' ' + (r.title || '').toLowerCase() });
+    });
+  }
+  const search = h('input', { type: 'search', class: 'search wide', placeholder: t('bank.search'), oninput: () => draw() });
+  const list = h('div', { class: 'bank-list' });
+  const update = () => { addBtn.disabled = !picked.size; addBtn.textContent = t('bank.add', { n: picked.size }); };
+  const draw = () => {
+    const words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+    const hits = items.filter(x => words.every(w => x.hay.includes(w))).slice(0, 150);
+    clear(list);
+    if (!hits.length) { list.append(h('p', { class: 'muted' }, items.length ? t('bank.none') : t('bank.empty'))); return; }
+    let lastQuiz = null;
+    for (const x of hits) {
+      if (x.quiz !== lastQuiz) {
+        lastQuiz = x.quiz;
+        list.append(h('h4', { class: 'bank-quiz' }, x.quiz.title || t('list.untitled'), x.quiz.owner !== me.user.id && x.quiz.owner_name ? h('span', { class: 'muted' }, ' · ' + t('list.by', { name: x.quiz.owner_name })) : null));
+      }
+      const correct = x.q.type === 'quiz' ? (x.q.options || []).filter(o => o.correct).map(o => o.text).join(' / ') : '';
+      list.append(h('label', { class: 'bank-item' + (picked.has(x.key) ? ' on' : '') },
+        h('input', { type: 'checkbox', checked: picked.has(x.key), onchange: e => {
+          if (e.target.checked) picked.set(x.key, x.q); else picked.delete(x.key);
+          e.target.closest('.bank-item').classList.toggle('on', e.target.checked);
+          update();
+        } }),
+        h('span', { class: 'qitem-type' }, TYPE_ICONS[x.q.type] || ''),
+        h('span', { class: 'bank-text' }, h('b', null, x.q.text || t('type.' + x.q.type)), correct ? h('small', { class: 'muted block' }, '✓ ' + correct) : null),
+        x.q.image ? h('img', { class: 'qitem-img', src: x.q.image, alt: '' }) : null));
+    }
+  };
+  clear(body).append(h('p', { class: 'muted' }, t('bank.intro')), search, list);
+  draw();
+  setTimeout(() => search.focus(), 30);
+  addBtn.onclick = () => {
+    const copies = [...picked.values()].map(q => ({ ...JSON.parse(JSON.stringify(q)), id: uid(8) }));
+    E.quiz.questions.splice(E.sel + 1, 0, ...copies);
+    E.sel += copies.length;
+    m.close();
+    changed(); drawList(); drawPanel();
+    toast(t('bank.added', { n: copies.length }), 'ok');
+  };
+}
+
 function settingsDialog() {
   const q = E.quiz;
   const desc = h('textarea', { rows: '2', placeholder: t('ed.description') });
   desc.value = q.description;
   modal(t('ed.settings'), h('div', { class: 'stack' },
     h('label', { class: 'field' }, h('span', null, t('ed.description')), desc),
+    h('div', { class: 'field' }, h('span', null, icon('tag', 15), ' ', t('labels.title')), labelEditor(q.labels || [], l => { q.labels = l; changed(); })),
     h('label', { class: 'check top' }, h('input', { type: 'checkbox', checked: !!q.is_private, onchange: e => {
       if (!backend.hasPrivate) { e.target.checked = false; return toast(t('ed.privateMissing'), 'bad'); }
       q.is_private = e.target.checked; changed(); drawEditor();
