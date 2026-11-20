@@ -2,7 +2,7 @@
 
 Kwest er en quiz-app for undervisning, i samme stil som Kahoot. Læreren viser spørsmålene på storskjerm, og elevene svarer på mobilen.
 
-**Nettside:** https://kwesting.vercel.app/ (elever) · https://kwesting.vercel.app/laerer.html (lærere)
+**Nettside:** https://kwesting.vercel.app/ (elever) · https://kwesting.vercel.app/studio (lærere)
 
 Første gang: følg [OPPSETT.md](OPPSETT.md).
 

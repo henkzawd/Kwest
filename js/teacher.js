@@ -719,7 +719,8 @@ async function usersView() {
   shell(h('div', { class: 'spinner' }), 'users');
   let users;
   try { users = await backend.listProfiles(); } catch (e) { return shell(h('p', { class: 'form-error' }, errMsg(e)), 'users'); }
-  const link = baseUrl() + 'laerer.html';
+  // På Vercel heter siden bare «/studio»; lokalt trengs «.html».
+  const link = baseUrl() + (location.pathname.endsWith('.html') ? 'studio.html' : 'studio');
   const toggle = (u, key) => h('input', { type: 'checkbox', checked: u[key], disabled: u.id === me.user.id, 'aria-label': t('users.' + (key === 'approved' ? 'approved' : 'admin')),
     onchange: async e => {
       try { await backend.updateProfile(u.id, { [key]: e.target.checked }); u[key] = e.target.checked; toast('✓', 'ok'); }

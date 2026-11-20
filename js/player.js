@@ -68,7 +68,7 @@ function joinView(error = '') {
       msg,
       h('button', { class: 'btn primary huge', type: 'submit' }, needPin ? t('join.next') : t('join.go'))),
     h('div', { class: 'join-links' },
-      h('a', { class: 'teacher-link', href: 'laerer.html' }, t('join.teacher')),
+      h('a', { class: 'teacher-link', href: 'studio.html' }, t('join.teacher')),
       h('button', { class: 'link teacher-link', type: 'button', onclick: () => feedbackDialog(null, 'elev') }, t('fb.button')))), { cls: 'center', hero: true });
   setTimeout(() => input.focus(), 50);
 }

@@ -30,7 +30,7 @@ try {
     p.on('console', m => { if (m.type() === 'error' || /Mangler tekst/.test(m.text())) errors.push(p.url() + ': ' + m.text()); });
   });
   const teacher = await ctx.newPage();
-  await teacher.goto(URL0 + 'laerer.html');
+  await teacher.goto(URL0 + 'studio.html');
   await shot(teacher, '01-login');
   await teacher.getByRole('button', { name: 'Lag konto' }).first().click();
   await teacher.getByPlaceholder('Navn').fill('Henrik');
@@ -257,7 +257,7 @@ try {
   await p2.locator('.modal textarea').fill('Morsomt spill!');
   await p2.locator('.modal').getByRole('button', { name: 'Send' }).click();
   await p2.getByText('Takk for tilbakemeldingen!').waitFor();
-  await host.goto(URL0 + 'laerer.html');
+  await host.goto(URL0 + 'studio.html');
   await host.getByRole('button', { name: /Gi tilbakemelding/ }).click();
   await host.locator('.modal textarea').fill('Kan vi få flere spørsmålstyper?');
   await host.locator('.modal').getByRole('button', { name: 'Send' }).click();

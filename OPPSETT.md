@@ -22,7 +22,7 @@ Kwest består av to deler:
 Vercel publiserer automatisk på nytt hver gang Claude oppdaterer hovedversjonen (main).
 
 Nettsiden blir: **https://kwesting.vercel.app/**
-Lærersiden blir: **https://kwesting.vercel.app/laerer.html**
+Lærersiden (Kwest Studio) blir: **https://kwesting.vercel.app/studio**
 
 ---
 
@@ -43,7 +43,7 @@ Lærersiden blir: **https://kwesting.vercel.app/laerer.html**
    - Slå av **Confirm email** og trykk **Save**.
 5. **Fortell Supabase hvor nettsiden ligger:**
    - **Authentication** → **URL Configuration**.
-   - Skriv inn `https://kwesting.vercel.app/laerer.html` i **Site URL** og trykk **Save**.
+   - Skriv inn `https://kwesting.vercel.app/studio` i **Site URL** og trykk **Save**.
 6. **Hent de to tilkoblingsverdiene:**
    - Trykk **Connect** øverst på prosjektsiden (eller **Project Settings** → **API Keys**).
    - Kopier **Project URL** (ser ut som `https://abcdefgh.supabase.co`).
@@ -59,7 +59,7 @@ Claude legger verdiene inn i Kwest og publiserer på nytt.
 
 ## Del 3 – Første innlogging
 
-1. Gå til **https://kwesting.vercel.app/laerer.html**
+1. Gå til **https://kwesting.vercel.app/studio**
 2. Trykk **Lag konto** og lag kontoen din. **Den første kontoen blir automatisk administrator.**
 3. Inviter kolleger: gå til fanen **Brukere**, kopier lenken og send den til dem. Når de har laget konto, huker du av **Godkjent** ved navnet deres.
 

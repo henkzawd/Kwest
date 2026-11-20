@@ -20,7 +20,7 @@ try {
   const host = await ctx.newPage();
   const errors = [];
   host.on('pageerror', e => errors.push(e.message));
-  await host.goto(URL0 + 'laerer.html');
+  await host.goto(URL0 + 'studio.html');
   await host.getByRole('button', { name: 'Lag konto' }).first().click();
   await host.getByPlaceholder('Navn').fill('Lærer');
   await host.getByPlaceholder('E-post').fill('l@example.com');
