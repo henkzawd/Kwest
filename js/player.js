@@ -3,7 +3,7 @@ import { h, svg, clear, uid, qs, baseUrl } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { feedbackDialog } from './feedback.js';
-import { COLORS, SHAPES, colorIndex } from './game.js';
+import { COLORS, SHAPES, TEAM_COLORS, REACTIONS, colorIndex } from './game.js';
 import { wordmark, questionSvg, exclamationSvg, landscape, setFavicon } from './logo.js';
 
 setFavicon();
@@ -13,8 +13,14 @@ const S = {
   pin: (qs('pin') || '').replace(/\D/g, '').slice(0, 6),
   name: (() => { try { return localStorage.getItem('kwest-name') || ''; } catch { return ''; } })(),
   id: null, ch: null, joined: false, view: null, state: null,
-  answeredQi: -1, myAnswer: null, score: 0, timer: null, lost: false,
+  answered: '', myAnswer: null, score: 0, timer: null, lost: false,
 };
+// Et svar gjelder ett spørsmål i én runde («stem igjen» gir runde 2).
+const akey = st => st.qi + ':' + (st.round || 1);
+function myTeam() {
+  const i = S.state?.teams?.of?.[S.id];
+  return i === undefined ? null : { i, name: t('team.' + i), color: TEAM_COLORS[i] };
+}
 
 // Gjenoppta samme spill hvis eleven laster siden på nytt.
 try {
@@ -26,14 +32,44 @@ function rerender() { if (S.view) S.view(); }
 
 function frame(content, opts = {}) {
   clear(app);
+  const team = opts.bar ? myTeam() : null;
   const top = opts.bar
     ? h('header', { class: 'pbar' },
         h('span', { class: 'pbar-name' }, S.name),
+        team ? h('span', { class: 'pbar-team', style: { background: team.color } }, team.name) : null,
         S.lost ? h('span', { class: 'pbar-lost' }, t('play.lost')) : null,
         h('span', { class: 'pbar-score' }, t('play.score', { n: S.score })))
     : h('header', { class: 'ptop' }, opts.hero ? h('span') : wordmark(34), langButton(rerender));
   app.append(top, h('main', { class: 'pmain ' + (opts.cls || '') }, content));
+  if (opts.react) { const bar = reactBar(); if (bar) app.append(bar); }
   if (!opts.bar) app.append(h('div', { class: 'landscape', 'aria-hidden': 'true' }, landscape()));
+}
+
+// ---------- Reaksjoner: 🐐 og ⛰️ til storskjermen ----------
+// Trykkene samles og sendes høyst hvert 8. sekund, så storskjermen ikke får for mange meldinger.
+const REACT_GAP = 8000;
+const R = { queue: { g: 0, p: 0 }, last: 0, timer: null };
+function reactBar() {
+  if (!S.joined || S.state?.rx === false) return null;
+  return h('div', { class: 'react-bar' }, Object.entries(REACTIONS).map(([k, emoji]) =>
+    h('button', { class: 'react-btn', type: 'button', 'aria-label': emoji, onclick: e => tapReact(k, emoji, e.currentTarget) }, emoji)));
+}
+function tapReact(k, emoji, btn) {
+  if (R.queue[k] >= 5) return;
+  R.queue[k]++;
+  const pop = h('span', { class: 'react-pop', 'aria-hidden': 'true' }, emoji);
+  btn.append(pop);
+  setTimeout(() => pop.remove(), 900);
+  if (navigator.vibrate) navigator.vibrate(8);
+  if (R.timer) return;
+  R.timer = setTimeout(flushReact, Math.max(0, R.last + REACT_GAP - Date.now()));
+}
+function flushReact() {
+  R.timer = null;
+  if (!S.joined || (!R.queue.g && !R.queue.p)) return;
+  R.last = Date.now();
+  S.inbox?.send('react', { id: S.id, ...R.queue });
+  R.queue = { g: 0, p: 0 };
 }
 
 // ---------- Bli med ----------
@@ -79,7 +115,20 @@ function message(title, sub, opts = {}) {
     opts.icon || null,
     h('h1', null, typeof title === 'function' ? title() : title),
     sub ? h('p', null, typeof sub === 'function' ? sub() : sub) : null,
-    opts.button || null), { bar: opts.bar !== false && S.joined, cls: 'center ' + (opts.cls || '') });
+    opts.extra || null,
+    opts.button || null), { bar: opts.bar !== false && S.joined, cls: 'center ' + (opts.cls || ''), react: opts.react });
+}
+
+// Diskuter med sidemannen: vis hva eleven svarte, men ikke fasit.
+function discussView(st) {
+  const labels = st.q?.type === 'truefalse' ? [t('ed.true'), t('ed.false')] : st.q?.labels;
+  const mine = typeof S.myAnswer === 'number' && S.answered === st.qi + ':1' ? labels?.[S.myAnswer] : null;
+  const ci = mine !== null && mine !== undefined ? colorIndex(st.q.type, S.myAnswer) : null;
+  message(() => t('play.discuss'), () => t('play.discussText'), {
+    icon: h('div', { class: 'big-mark' }, '💬'),
+    extra: mine ? h('div', { class: 'my-answer', style: { background: COLORS[ci] } }, h('small', null, t('play.youAnswered')), h('b', null, mine)) : null,
+    react: true,
+  });
 }
 
 // ---------- Tilkobling ----------
@@ -108,7 +157,7 @@ function connect() {
     }
     S.joined = true;
     S.score = p.score || 0;
-    if (p.answered && p.state) S.answeredQi = p.state.qi;
+    if (p.answered && p.state) S.answered = akey(p.state);
     sessionStorage.setItem('kwest-player', JSON.stringify({ pin: S.pin, name: S.name, id: S.id }));
     keepAwake();
     onState(p.state);
@@ -156,17 +205,20 @@ document.addEventListener('visibilitychange', () => {
 
 function lobby() {
   S.view = lobby;
+  const team = myTeam();
   frame(h('div', { class: 'pmsg lobby' },
     h('div', { class: 'big-mark' }, exclamationSvg(110)),
     h('div', { class: 'banner' }, S.name),
+    team ? h('div', { class: 'team-badge', style: { background: team.color } }, t('play.yourTeam', { name: team.name })) : null,
     h('h1', null, t('join.youreIn')),
-    h('p', null, t('join.seeName'))), { cls: 'center' });
+    h('p', null, t('join.seeName'))), { cls: 'center', react: true });
 }
 
 // ---------- Spillet ----------
 function onState(st) {
   // Samme lobby-status på nytt (fordi andre ble med) – ikke tegn skjermen på nytt.
-  if (st.phase === 'lobby' && S.state?.phase === 'lobby' && S.view === lobby) { S.state = st; return; }
+  if (st.phase === 'lobby' && S.state?.phase === 'lobby' && S.view === lobby && st.rx === S.state.rx
+    && st.teams?.of?.[S.id] === S.state.teams?.of?.[S.id] && !!st.teams === !!S.state.teams) { S.state = st; return; }
   const prevQi = S.state?.qi;
   S.state = st;
   if (st.qi !== prevQi && st.phase !== 'reveal') S.myAnswer = null;
@@ -179,11 +231,14 @@ function onState(st) {
     case 'intro':
       // Spørsmålet starter av seg selv når «Gjør deg klar» er ferdig (sparer en melding per spørsmål).
       if (st.q) S.introTimer = setTimeout(() => { if (S.state === st) onState({ ...st, phase: 'question' }); }, st.startsIn || 0);
+      if (st.round === 2) return message(() => t('play.revote'), () => t('play.revoteText'), { icon: h('div', { class: 'big-mark pulse' }, '💬') });
+      if (st.q?.finale) return message(() => t('play.finale'), () => t('play.finaleText'), { icon: h('div', { class: 'big-mark pulse' }, questionSvg(110)), cls: 'finale' });
       return message(() => t('play.getReady'), () => t('play.question', { n: st.qi + 1, total: st.total }), { icon: h('div', { class: 'big-mark pulse' }, questionSvg(110)) });
     case 'info': return message(() => t('play.lookScreen'), null, { icon: h('div', { class: 'big-mark' }, questionSvg(90)) });
     case 'question':
-      if (S.answeredQi === st.qi) return sent();
+      if (S.answered === akey(st)) return sent();
       return answerView(st);
+    case 'discuss': return discussView(st);
     case 'reveal': return resultView(st);
     case 'scoreboard': return rankView(st);
     case 'podium': return finalView(st);
@@ -191,10 +246,10 @@ function onState(st) {
 }
 
 function sendAnswer(value) {
-  if (S.answeredQi === S.state.qi) return;
-  S.answeredQi = S.state.qi;
+  if (S.answered === akey(S.state)) return;
+  S.answered = akey(S.state);
   S.myAnswer = value;
-  S.inbox?.send('answer', { id: S.id, qi: S.state.qi, value });
+  S.inbox?.send('answer', { id: S.id, qi: S.state.qi, round: S.state.round || 1, value });
   if (navigator.vibrate) navigator.vibrate(30);
   sent();
 }
@@ -334,9 +389,9 @@ function resultView(st) {
     h('p', null, exp)) : null;
   S.view = () => resultView(st);
   if (!r || !scored) {
-    if (!expBox) return message(() => (r?.answered ? t('play.thanks') : t('play.lookScreen')), null, { icon: h('div', { class: 'big-mark' }, questionSvg(90)) });
+    if (!expBox) return message(() => (r?.answered ? t('play.thanks') : t('play.lookScreen')), null, { icon: h('div', { class: 'big-mark' }, questionSvg(90)), react: true });
     return frame(h('div', { class: 'result-stack' },
-      h('div', { class: 'result neutral' }, h('h1', null, r?.answered ? t('play.thanks') : t('play.lookScreen'))), expBox), { bar: true, cls: 'full' });
+      h('div', { class: 'result neutral' }, h('h1', null, r?.answered ? t('play.thanks') : t('play.lookScreen'))), expBox), { bar: true, cls: 'full', react: true });
   }
   const cls = r.ok ? 'good' : 'bad';
   const correctText = st.q.tf !== undefined ? (st.q.tf ? t('ed.true') : t('ed.false')) : st.q.correct;
@@ -347,13 +402,15 @@ function resultView(st) {
       r.ok && r.pts ? h('div', { class: 'result-pts' }, t('play.points', { n: r.pts })) : null,
       r.ok && r.streak > 1 ? h('div', { class: 'result-streak' }, t('play.streak', { n: r.streak })) : null,
       !r.ok && correctText ? h('p', { class: 'result-correct' }, t('play.correctWas'), ' ', h('b', null, correctText)) : null,
-      h('p', { class: 'result-rank' }, t('play.place', { n: r.rank }))),
-    expBox), { bar: true, cls: 'full' });
+      r.climb ? h('div', { class: 'result-climb' }, t('play.climb', { n: r.climb })) : null,
+      h('p', { class: 'result-rank' }, t('play.place', { n: r.rank }), r.tr ? ' · ' + t('play.teamPlace', { n: r.tr }) : '')),
+    expBox), { bar: true, cls: 'full', react: true });
 }
 
 function rankView(st) {
   const r = st.results?.[S.id];
-  message(() => (r ? t('play.place', { n: r.rank }) : t('play.lookScreen')), () => (r ? t('play.finalScore', { n: r.score }) : ''), { icon: h('div', { class: 'big-mark' }, questionSvg(90)) });
+  message(() => (r ? t('play.place', { n: r.rank }) : t('play.lookScreen')), () => (r ? t('play.finalScore', { n: r.score }) + (r.tr ? ' · ' + t('play.teamPlace', { n: r.tr }) : '') : ''),
+    { icon: h('div', { class: 'big-mark' }, questionSvg(90)), react: true });
 }
 
 function finalView(st) {
@@ -363,9 +420,10 @@ function finalView(st) {
   frame(h('div', { class: 'pmsg final' },
     medal ? h('div', { class: 'medal' }, medal) : h('div', { class: 'big-mark' }, questionSvg(100)),
     h('div', { class: 'banner' }, t('play.final')),
-    r ? h('p', { class: 'final-place' }, t('play.finalPlace', { n: r.rank })) : null,
+    r?.tr ? h('p', { class: 'final-place' }, t('play.teamFinal', { n: r.tr })) : null,
+    r ? h('p', { class: r.tr ? '' : 'final-place' }, t('play.finalPlace', { n: r.rank })) : null,
     r ? h('p', null, t('play.finalScore', { n: r.score })) : null,
-    againButton()), { bar: true, cls: 'center' });
+    againButton()), { bar: true, cls: 'center', react: true });
   sessionStorage.removeItem('kwest-player');
 }
 

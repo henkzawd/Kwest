@@ -88,6 +88,19 @@ function supabaseBackend() {
     async deleteFeedback(id) { ok(await client.from('feedback').delete().eq('id', id)); },
     async updateProfile(id, patch) { ok(await client.from('profiles').update(patch).eq('id', id)); },
 
+    // Hjemmelekse
+    async createAssignment(a) {
+      return ok(await client.from('assignments').insert({ code: uid(8), quiz_id: a.quiz_id, title: a.title, data: a.data }).select('*').single());
+    },
+    async listAssignments(quizId) {
+      return ok(await client.from('assignments').select('id,code,title,data,is_open,created_at,assignment_results(score,answers)').eq('quiz_id', quizId).order('created_at', { ascending: false }))
+        .map(({ assignment_results, ...a }) => ({ ...a, results: assignment_results || [] }));
+    },
+    async updateAssignment(id, patch) { ok(await client.from('assignments').update(patch).eq('id', id)); },
+    async deleteAssignment(id) { ok(await client.from('assignments').delete().eq('id', id)); },
+    async getAssignment(code) { return ok(await client.rpc('get_assignment', { p_code: code })); },
+    async submitAssignment(code, score, answers) { return ok(await client.rpc('submit_assignment', { p_code: code, p_score: score, p_answers: answers })); },
+
     channel(pin) {
       const ch = client.channel('kwest-' + pin, { config: { broadcast: { self: false, ack: false } } });
       return {
@@ -211,6 +224,32 @@ function demoBackend() {
       const list = users();
       Object.assign(list.find(u => u.id === id), patch);
       write('kwest-demo-users', list);
+    },
+
+    async createAssignment(a) {
+      const row = { id: uid(), code: uid(8), owner: current(), quiz_id: a.quiz_id, title: a.title, data: a.data, is_open: true, created_at: new Date().toISOString() };
+      write('kwest-demo-assignments', [row, ...read('kwest-demo-assignments', [])]);
+      return row;
+    },
+    async listAssignments(quizId) {
+      const results = read('kwest-demo-results', []);
+      return read('kwest-demo-assignments', []).filter(a => a.quiz_id === quizId && a.owner === current())
+        .map(a => ({ ...a, results: results.filter(r => r.assignment_id === a.id) }));
+    },
+    async updateAssignment(id, patch) { write('kwest-demo-assignments', read('kwest-demo-assignments', []).map(a => (a.id === id ? { ...a, ...patch } : a))); },
+    async deleteAssignment(id) {
+      write('kwest-demo-assignments', read('kwest-demo-assignments', []).filter(a => a.id !== id));
+      write('kwest-demo-results', read('kwest-demo-results', []).filter(r => r.assignment_id !== id));
+    },
+    async getAssignment(code) {
+      const a = read('kwest-demo-assignments', []).find(x => x.code === code);
+      return a ? { title: a.title, data: a.data, open: a.is_open } : null;
+    },
+    async submitAssignment(code, score, answers) {
+      const a = read('kwest-demo-assignments', []).find(x => x.code === code && x.is_open);
+      if (!a) return false;
+      write('kwest-demo-results', [...read('kwest-demo-results', []), { id: uid(), assignment_id: a.id, created_at: new Date().toISOString(), score, answers }]);
+      return true;
     },
 
     channel(pin) {

@@ -47,9 +47,14 @@ try {
       const id = 'bot' + i;
       const out = new BroadcastChannel('kwest-' + pin);
       const inn = new BroadcastChannel('kwest-' + pin + '-inn');
-      let qi = -1;
+      let qi = -1, phase = 'lobby';
+      // Verste tilfelle: alle elevene trykker på reaksjoner hele tiden (mobilen sender høyst hvert 8. sekund).
+      setTimeout(() => setInterval(() => {
+        if (['lobby', 'reveal', 'scoreboard', 'podium', 'discuss'].includes(phase)) inn.postMessage({ event: 'react', payload: { id, g: 3, p: 2 } });
+      }, 8000), Math.random() * 8000);
       out.onmessage = e => {
         const { event, payload } = e.data;
+        if (payload.phase) phase = payload.phase;
         count(1, 'ut:' + event + ':' + (payload.phase || '')); // hver elev mottar meldingen
         if (payload.replies?.[id]?.ok) stats.accepted++;
         if (event === 'state' && (payload.phase === 'question' || payload.phase === 'intro') && payload.q && payload.qi !== qi) {
@@ -69,6 +74,7 @@ try {
       setTimeout(() => inn.postMessage({ event: 'join', payload: { id, name: 'Elev ' + (i + 1) } }), Math.random() * 20000);
     }
   }, { pin, N });
+  await host.locator('.team-pick select').selectOption('4');
   await host.locator('.chip').nth(N - 1).waitFor({ timeout: 40000 });
   await host.waitForTimeout(1500);
   await host.screenshot({ path: (process.env.SHOTS || '/tmp') + '/load-lobby.png' });

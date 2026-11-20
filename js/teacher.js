@@ -2,7 +2,7 @@
 import { h, svg, clear, debounce, modal, confirmBox, toast, readImage, download, copyText, fmtDate, baseUrl, uid } from './util.js';
 import { t, lang, langButton } from './i18n.js';
 import { backend } from './backend.js';
-import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz } from './game.js';
+import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, DISCUSS_TYPES, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz } from './game.js';
 import { feedbackDialog } from './feedback.js';
 import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
@@ -285,6 +285,7 @@ function card(r, refresh) {
       moreMenu([
         editable ? [t('list.copy'), () => copyQuiz(r)] : null,
         editable ? [t('labels.title'), () => labelsDialog(r, refresh)] : null,
+        ['🧪 ' + t('test.button'), () => { location.href = 'host.html?id=' + r.id + '&test=1'; }],
         [t('list.export'), () => exportRow(r)],
         editable ? [t('list.delete'), async () => {
           if (!(await confirmBox(t('list.delete'), t('list.deleteConfirm', { title: r.title }), t('common.delete'), t('common.cancel')))) return;
@@ -573,7 +574,7 @@ function setStatus(s) {
 function drawEditor() {
   const q = E.quiz;
   const title = h('input', { class: 'title-input', value: q.title, placeholder: t('ed.title'), disabled: E.readonly, oninput: e => { q.title = e.target.value; changed(); } });
-  const startBtn = h('button', { class: 'btn primary', onclick: startGame }, t('ed.play'));
+  const startBtn = h('button', { class: 'btn primary', onclick: () => startGame(false) }, t('ed.play'));
   shell(h('div', { class: 'editor' + (E.readonly ? ' readonly' : '') },
     h('div', { class: 'ed-head' },
       h('a', { class: 'btn ghost small', href: '#/' }, t('ed.back')),
@@ -585,6 +586,7 @@ function drawEditor() {
         h('button', { class: 'icon-btn redo-btn', title: t('ed.redo'), 'aria-label': t('ed.redo'), disabled: !E.redo.length, onclick: () => undo(false) }, icon('redo'))),
       h('button', { class: 'btn ghost', onclick: settingsDialog, disabled: E.readonly }, '⚙ ' + t('ed.settings')),
       E.readonly ? h('button', { class: 'btn ghost', onclick: () => copyQuiz({ id: E.id }) }, t('list.copy')) : null,
+      h('button', { class: 'btn ghost', title: t('test.help'), onclick: () => startGame(true) }, '🧪 ' + t('test.button')),
       startBtn),
     E.readonly ? h('p', { class: 'notice' }, t('ed.readonly', { name: E.ownerName || '?' })) : null,
     h('div', { class: 'ed-body' },
@@ -593,7 +595,7 @@ function drawEditor() {
       h('section', { class: 'ed-panel' }))));
   drawList();
   drawPanel();
-  if (!E.id && !E.readonly) setTimeout(() => title.focus(), 50);
+  if (!E.id && !E.readonly) setTimeout(() => { if (!document.activeElement || document.activeElement === document.body) title.focus(); }, 50);
 }
 
 function addButton() {
@@ -625,7 +627,7 @@ function drawList() {
     list.append(h('li', { class: 'qitem' + (i === E.sel ? ' sel' : '') + (bad ? ' bad' : ''), onclick: () => { E.sel = i; drawList(); drawPanel(); } },
       h('span', { class: 'qitem-n' }, i + 1),
       h('div', { class: 'qitem-body' },
-        h('span', { class: 'qitem-type' }, TYPE_ICONS[q.type] + ' ' + t('type.' + q.type)),
+        h('span', { class: 'qitem-type' }, TYPE_ICONS[q.type] + ' ' + t('type.' + q.type), q.discuss ? ' · 💬' : ''),
         h('span', { class: 'qitem-text' }, q.type === 'scoreboard' ? t('ed.scoreboardShort') : q.text || '…')),
       q.image ? h('img', { class: 'qitem-img', src: q.image, alt: '' }) : null));
   });
@@ -654,6 +656,7 @@ function drawPanel() {
     const fresh = newQuestion(type);
     fresh.id = q.id; fresh.text = q.text; fresh.image = q.image; fresh.audio = q.audio; fresh.autoplay = q.autoplay; fresh.explanation = q.explanation || '';
     if (type !== 'info' && q.type !== 'info' && q.time) fresh.time = q.time;
+    if (q.discuss && DISCUSS_TYPES.includes(type)) fresh.discuss = true;
     // Ta med svaralternativene der det gir mening.
     const texts = q.options ? q.options.map(o => o.text) : q.items ? q.items : null;
     if (texts && fresh.options) fresh.options = texts.map((text, i) => (type === 'quiz' ? { text, correct: q.options ? !!q.options[i]?.correct : i === 0 } : { text }));
@@ -668,6 +671,9 @@ function drawPanel() {
     q.type !== 'info' && q.type !== 'scoreboard' ? h('label', { class: 'field' }, h('span', null, t('ed.time')), select(TIMES.map(s => [s, t('ed.seconds', { n: s })]), q.time, v => { q.time = Number(v); changed(); }, ro)) : null,
     ['quiz', 'truefalse', 'short', 'slider', 'order'].includes(q.type) ? h('label', { class: 'field' }, h('span', null, t('ed.points')),
       select([['standard', t('ed.pStandard')], ['double', t('ed.pDouble')], ['none', t('ed.pNone')]], q.points, v => { q.points = v; changed(); }, ro)) : null,
+    DISCUSS_TYPES.includes(q.type) ? h('label', { class: 'check discuss-check', title: t('ed.discussHelp') },
+      h('input', { type: 'checkbox', checked: !!q.discuss, disabled: ro, onchange: e => { if (e.target.checked) q.discuss = true; else delete q.discuss; changed(); drawList(); } }),
+      '💬 ' + t('ed.discuss')) : null,
     h('span', { class: 'spacer' }),
     ro ? null : h('div', { class: 'qtools' },
       h('button', { class: 'icon-btn', title: t('ed.moveUp'), disabled: E.sel === 0, onclick: () => move(-1) }, icon('up')),
@@ -926,11 +932,13 @@ function settingsDialog() {
       q.is_private = e.target.checked; changed(); drawEditor();
     } }), h('span', null, h('b', null, t('ed.private')), h('small', { class: 'muted block' }, t('ed.privateHelp')))),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.leaderboard, onchange: e => { q.settings.leaderboard = e.target.checked; changed(); } }), t('ed.leaderboard')),
-    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.shuffle, onchange: e => { q.settings.shuffle = e.target.checked; changed(); } }), t('ed.shuffle'))));
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.shuffle, onchange: e => { q.settings.shuffle = e.target.checked; changed(); } }), t('ed.shuffle')),
+    h('label', { class: 'check top' }, h('input', { type: 'checkbox', checked: !!q.settings.finale, onchange: e => { q.settings.finale = e.target.checked; changed(); } }),
+      h('span', null, h('b', null, t('ed.finale')), h('small', { class: 'muted block' }, t('ed.finaleHelp'))))));
   desc.addEventListener('input', () => { q.description = desc.value; changed(); });
 }
 
-async function startGame() {
+async function startGame(test = false) {
   const issues = validateQuiz(E.quiz);
   if (issues.length) {
     modal(t('ed.issues'), h('ul', { class: 'issue-list' }, issues.map(x => h('li', null, h('button', { class: 'link', onclick: () => {
@@ -940,7 +948,7 @@ async function startGame() {
     return;
   }
   if (!E.readonly) { E.dirty = E.dirty || !E.id; await saveNow(); }
-  if (E.id) location.href = 'host.html?id=' + E.id;
+  if (E.id) location.href = 'host.html?id=' + E.id + (test ? '&test=1' : '');
 }
 
 // ---------- Brukere (bare administrator) ----------
