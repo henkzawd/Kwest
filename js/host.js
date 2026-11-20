@@ -176,6 +176,12 @@ function statePayload() {
   }
   if (['reveal', 'scoreboard', 'podium'].includes(G.phase)) {
     st.q = cur ? { type: cur.type, scored: SCORED.includes(cur.type) } : null;
+    // Forklaring og fasit sendes bare med i fasit-visningen (ikke på poengtavle/pallen).
+    if (G.phase === 'reveal' && cur) {
+      const exp = (cur.explanation || '').trim();
+      if (exp) st.q.explanation = exp;
+      Object.assign(st.q, correctAnswer(cur));
+    }
     st.results = {};
     for (const r of ranked()) st.results[r.id] = { ok: r.ok, pts: r.pts, score: r.score, rank: r.rank, streak: r.streak, answered: r.answered };
   }
@@ -493,7 +499,8 @@ function renderReveal(main) {
     body = h('div', { class: 'reveal-wrap' },
       h('div', { class: 'reveal-top' + (cur.image ? ' with-img' : '') },
         cur.image ? h('img', { class: 'qimg small', src: cur.image, alt: '' }) : null,
-        bars(cur, counts, correct)),
+        bars(cur, counts, correct),
+        explanationBox(cur)),
       tiles(cur, { correct, reveal: true }));
   } else if (cur.type === 'short') {
     const groups = {};
@@ -513,10 +520,30 @@ function renderReveal(main) {
         return h('li', { style: { background: COLORS[d] } }, h('span', { class: 'shape' }, svg(SHAPES[d])), h('span', null, it));
       })));
   }
-  put(main, h('div', { class: 'reveal-body' }, body), audioPlayer(cur, false));
+  // Forklaring ved siden av (for typer uten søyler; der står den allerede ved søylene).
+  const sideExp = ['quiz', 'poll', 'truefalse'].includes(cur.type) ? null : explanationBox(cur);
+  put(main, h('div', { class: 'reveal-body' }, sideExp ? h('div', { class: 'reveal-split' }, body, sideExp) : body), audioPlayer(cur, false));
   put(main, h('div', { class: 'hfoot' },
     SCORED.includes(cur.type) ? h('span', { class: 'reveal-stat' }, t('host.correctCount', { n: nCorrect, total: nPlayers })) : h('span', null),
     h('button', { class: 'btn primary big', onclick: next }, G.qi >= total() - 1 ? t('host.podium') : t('host.next'))));
+}
+
+// Fasiten som tekst til mobilen, slik at den kan vise «Riktig svar: …» til de som svarte feil.
+function correctAnswer(cur) {
+  switch (cur.type) {
+    case 'quiz': return { correct: cur.options.filter(o => o.correct).map(o => o.text).join(' / ') };
+    case 'truefalse': return { tf: !!cur.tf };
+    case 'short': return { correct: cur.answers[0] || '' };
+    case 'slider': return { correct: cur.correct + (cur.unit ? ' ' + cur.unit : '') };
+    case 'order': return { correct: cur.items.join(' → ') };
+    default: return {};
+  }
+}
+
+function explanationBox(cur) {
+  const exp = (cur.explanation || '').trim();
+  if (!exp) return null; // tomt felt = ingen boks
+  return h('aside', { class: 'exp-box' }, h('b', null, icon('book', 16), t('host.explanation')), h('p', null, exp));
 }
 
 function bars(cur, counts, correct) {

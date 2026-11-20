@@ -327,17 +327,28 @@ function fitSize(text) {
 function resultView(st) {
   const r = st.results?.[S.id];
   const scored = st.q && st.q.scored;
-  if (!r || !scored) {
-    return message(() => (r?.answered ? t('play.thanks') : t('play.lookScreen')), null, { icon: h('div', { class: 'big-mark' }, questionSvg(90)) });
-  }
+  const exp = (st.q?.explanation || '').trim();
+  // Forklaringsboksen vises bare når læreren har skrevet noe.
+  const expBox = exp ? h('div', { class: 'exp-panel' },
+    h('b', null, svg('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5V5.5"/></svg>'), t('play.explanation')),
+    h('p', null, exp)) : null;
   S.view = () => resultView(st);
+  if (!r || !scored) {
+    if (!expBox) return message(() => (r?.answered ? t('play.thanks') : t('play.lookScreen')), null, { icon: h('div', { class: 'big-mark' }, questionSvg(90)) });
+    return frame(h('div', { class: 'result-stack' },
+      h('div', { class: 'result neutral' }, h('h1', null, r?.answered ? t('play.thanks') : t('play.lookScreen'))), expBox), { bar: true, cls: 'full' });
+  }
   const cls = r.ok ? 'good' : 'bad';
-  frame(h('div', { class: 'result ' + cls },
-    h('div', { class: 'result-icon' }, r.ok ? '✓' : '✕'),
-    h('h1', null, r.ok ? t('play.correct') : r.answered ? t('play.wrong') : t('play.noAnswer')),
-    r.ok && r.pts ? h('div', { class: 'result-pts' }, t('play.points', { n: r.pts })) : null,
-    r.ok && r.streak > 1 ? h('div', { class: 'result-streak' }, t('play.streak', { n: r.streak })) : null,
-    h('p', { class: 'result-rank' }, t('play.place', { n: r.rank }))), { bar: true, cls: 'full' });
+  const correctText = st.q.tf !== undefined ? (st.q.tf ? t('ed.true') : t('ed.false')) : st.q.correct;
+  frame(h('div', { class: 'result-stack' + (expBox ? ' with-exp' : '') },
+    h('div', { class: 'result ' + cls },
+      h('div', { class: 'result-icon' }, r.ok ? '✓' : '✕'),
+      h('h1', null, r.ok ? t('play.correct') : r.answered ? t('play.wrong') : t('play.noAnswer')),
+      r.ok && r.pts ? h('div', { class: 'result-pts' }, t('play.points', { n: r.pts })) : null,
+      r.ok && r.streak > 1 ? h('div', { class: 'result-streak' }, t('play.streak', { n: r.streak })) : null,
+      !r.ok && correctText ? h('p', { class: 'result-correct' }, t('play.correctWas'), ' ', h('b', null, correctText)) : null,
+      h('p', { class: 'result-rank' }, t('play.place', { n: r.rank }))),
+    expBox), { bar: true, cls: 'full' });
 }
 
 function rankView(st) {

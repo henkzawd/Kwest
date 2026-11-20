@@ -283,6 +283,7 @@ export function aiPrompt(n, extra, language) {
     '- Spørsmålstekst: helst under 120 tegn. Svaralternativer: maks 4, helst under 60 tegn hver.',
     '- Gale alternativer skal være troverdige.',
     '- Bruk "points": "double" på 1–2 ekstra viktige spørsmål.',
+    '- Gi hvert spørsmål en kort "explanation" (1–3 setninger, maks ca. 400 tegn) som forklarer HVORFOR riktig svar er riktig – den vises for elevene etter at de har svart. Bygg på materialet.',
     extra ? `- Ekstra ønsker: ${extra}` : null,
     '',
     'Svar KUN med gyldig JSON i nøyaktig dette formatet, uten forklaring før eller etter:',
@@ -296,6 +297,7 @@ export function aiPrompt(n, extra, language) {
     '- Question text: preferably under 120 characters. Answers: max 4, preferably under 60 characters each.',
     '- Wrong answers should be plausible.',
     '- Use "points": "double" on 1–2 especially important questions.',
+    '- Give every question a short "explanation" (1–3 sentences, max ~400 characters) explaining WHY the correct answer is correct – it is shown to students after they answer. Base it on the material.',
     extra ? `- Extra wishes: ${extra}` : null,
     '',
     'Reply ONLY with valid JSON in exactly this format, with no explanation before or after:',
@@ -303,10 +305,10 @@ export function aiPrompt(n, extra, language) {
   const example = {
     kwest: 1, title: no ? 'Tittel' : 'Title', description: no ? 'Kort beskrivelse' : 'Short description',
     questions: [
-      { type: 'quiz', text: '…', time: 20, points: 'standard', options: [{ text: '…', correct: true }, { text: '…', correct: false }, { text: '…', correct: false }, { text: '…', correct: false }] },
-      { type: 'truefalse', text: '…', time: 10, correct: true },
-      { type: 'short', text: '…', time: 30, answers: [no ? 'svar' : 'answer', no ? 'annen skrivemåte' : 'alternative spelling'] },
-      { type: 'slider', text: '…', time: 30, min: 0, max: 100, step: 1, correct: 42, tolerance: 3, unit: 'mg' },
+      { type: 'quiz', text: '…', time: 20, points: 'standard', explanation: no ? 'Kort forklaring av hvorfor svaret er riktig.' : 'Short explanation of why the answer is correct.', options: [{ text: '…', correct: true }, { text: '…', correct: false }, { text: '…', correct: false }, { text: '…', correct: false }] },
+      { type: 'truefalse', text: '…', time: 10, correct: true, explanation: '…' },
+      { type: 'short', text: '…', time: 30, answers: [no ? 'svar' : 'answer', no ? 'annen skrivemåte' : 'alternative spelling'], explanation: '…' },
+      { type: 'slider', text: '…', time: 30, min: 0, max: 100, step: 1, correct: 42, tolerance: 3, unit: 'mg', explanation: '…' },
       { type: 'order', text: '…', time: 30, items: [no ? 'første' : 'first', no ? 'andre' : 'second', no ? 'tredje' : 'third', no ? 'fjerde' : 'fourth'] },
       { type: 'poll', text: '…', time: 20, options: [{ text: '…' }, { text: '…' }] },
       { type: 'wordcloud', text: '…', time: 30, maxWords: 1 },
@@ -492,7 +494,7 @@ function drawPanel() {
 
   const changeType = type => {
     const fresh = newQuestion(type);
-    fresh.id = q.id; fresh.text = q.text; fresh.image = q.image; fresh.audio = q.audio; fresh.autoplay = q.autoplay;
+    fresh.id = q.id; fresh.text = q.text; fresh.image = q.image; fresh.audio = q.audio; fresh.autoplay = q.autoplay; fresh.explanation = q.explanation || '';
     if (type !== 'info' && q.type !== 'info' && q.time) fresh.time = q.time;
     // Ta med svaralternativene der det gir mening.
     const texts = q.options ? q.options.map(o => o.text) : q.items ? q.items : null;
@@ -535,10 +537,20 @@ function drawPanel() {
       h('div', { class: 'q-slide-head' }, h('span', { class: 'q-mark' }, q.type === 'info' ? exclamationSvg(40) : questionSvg(40)), text),
       imageBox(q, ro),
       audioBox(q, ro),
-      typeEditor(q, ro, rerender)));
+      typeEditor(q, ro, rerender),
+      q.type === 'info' ? null : explanationField(q, ro)));
 
   const issues = validateQuiz(E.quiz).filter(x => x.index === E.sel);
   if (issues.length) panel.append(h('p', { class: 'q-issues' }, '⚠ ' + issues.map(x => t(x.key)).join(', ')));
+}
+
+function explanationField(q, ro) {
+  const ta = h('textarea', { class: 'exp-input', rows: '3', maxlength: '600', disabled: ro, placeholder: t('ed.explanationPh'),
+    oninput: e => { q.explanation = e.target.value; changed(); } });
+  ta.value = q.explanation || '';
+  return h('label', { class: 'field exp-field' },
+    h('span', null, icon('book', 15), ' ', t('ed.explanation'), h('span', { class: 'tag' }, t('ed.optional'))),
+    ta, h('small', { class: 'muted' }, t('ed.explanationHint')));
 }
 
 function move(d) {

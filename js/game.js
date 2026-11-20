@@ -17,7 +17,7 @@ export const TIMES = [5, 10, 20, 30, 45, 60, 90, 120, 240];
 export const SCORED = ['quiz', 'truefalse', 'short', 'slider', 'order'];
 
 export function newQuestion(type = 'quiz') {
-  const q = { id: uid(8), type, text: '', image: '', audio: '', autoplay: true, time: 20, points: 'standard' };
+  const q = { id: uid(8), type, text: '', image: '', audio: '', autoplay: true, explanation: '', time: 20, points: 'standard' };
   switch (type) {
     case 'quiz': q.options = [{ text: '', correct: true }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }]; break;
     case 'truefalse': q.tf = true; q.time = 10; break;
@@ -80,6 +80,7 @@ export function normalizeQuestion(r) {
   q.image = typeof r.image === 'string' && /^(data:image\/|https:\/\/)/.test(r.image) ? r.image : '';
   q.audio = typeof r.audio === 'string' && /^(data:audio\/|https:\/\/)/.test(r.audio) ? r.audio : '';
   q.autoplay = r.autoplay !== false;
+  q.explanation = str(r.explanation ?? r.forklaring).slice(0, 600);
   if (r.time !== undefined || r.timeLimit !== undefined) q.time = Math.max(0, Math.min(600, Math.round(num(r.time ?? r.timeLimit, q.time))));
   if (['standard', 'double', 'none'].includes(r.points)) q.points = r.points;
   if (type === 'quiz' || type === 'poll') {

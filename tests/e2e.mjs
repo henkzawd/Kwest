@@ -162,6 +162,11 @@ try {
   await p1.getByText('Riktig!').waitFor();
   await p2.getByText('Feil').waitFor();
   await host.waitForTimeout(900); await shot(host, '13-resultat');
+  if (!(await host.locator('.exp-box').count())) throw new Error('Mangler forklaring på storskjermen');
+  await p2.locator('.exp-panel').waitFor();
+  await p2.getByText('Riktig svar: 4').waitFor();
+  await shot(p2, '15b-mobil-forklaring');
+  step('Forklaring vises på storskjerm og mobil, med riktig svar for den som svarte feil');
   if (!(await host.locator('.tile-wrong').count())) throw new Error('Gale svar er ikke merket');
   await shot(p1, '14-mobil-riktig');
   await shot(p2, '15-mobil-feil');
@@ -176,6 +181,7 @@ try {
   await p2.locator('.pbtn', { hasText: 'Sant' }).first().click();
   await host.locator('.tiles.revealed').waitFor();
   await p1.getByText('Riktig!').waitFor();
+  if (await p1.locator('.exp-panel').count() || await host.locator('.exp-box').count()) throw new Error('Forklaringsboks vist uten forklaring');
   await host.getByRole('button', { name: 'Neste' }).click();
   await host.getByRole('button', { name: 'Neste' }).click();
 
@@ -201,6 +207,7 @@ try {
   await p2.locator('input[type=range]').evaluate(el => { el.value = 150; el.dispatchEvent(new Event('input')); });
   await p2.getByRole('button', { name: 'Send' }).click();
   await p1.getByText('Riktig!').waitFor();
+  await host.locator('.reveal-split .exp-box').waitFor(); await host.waitForTimeout(900);
   await shot(host, '19-slider-resultat');
   await host.getByRole('button', { name: 'Neste' }).click();
   await host.getByRole('button', { name: 'Neste' }).click();

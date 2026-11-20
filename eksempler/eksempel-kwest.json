@@ -2,17 +2,99 @@
   "kwest": 1,
   "title": "Eksempel: Kroppen vår",
   "description": "En liten demo som viser alle spørsmålstypene i Kwest.",
-  "settings": { "leaderboard": true, "shuffle": false },
+  "settings": {
+    "leaderboard": true,
+    "shuffle": false
+  },
   "questions": [
-    { "type": "info", "text": "Velkommen til Kwest!\nSvar på mobilen – raske riktige svar gir flest poeng." },
-    { "type": "wordcloud", "text": "Hva tenker du på når du hører ordet «hjerte»?", "time": 30, "maxWords": 1 },
-    { "type": "quiz", "text": "Hvor mange kamre har hjertet?", "time": 20, "options": [
-      { "text": "2", "correct": false }, { "text": "3", "correct": false }, { "text": "4", "correct": true }, { "text": "5", "correct": false } ] },
-    { "type": "truefalse", "text": "Blodet i lungearterien er oksygenrikt.", "time": 10, "correct": false },
-    { "type": "short", "text": "Hva heter kroppens største organ?", "time": 30, "answers": ["huden", "hud"] },
-    { "type": "slider", "text": "Hvor mange bein har et voksent menneske?", "time": 30, "min": 150, "max": 250, "step": 1, "correct": 206, "tolerance": 5, "unit": "bein", "points": "double" },
-    { "type": "order", "text": "Sorter fra minst til størst", "time": 30, "items": ["Celle", "Vev", "Organ", "Organsystem"] },
-    { "type": "poll", "text": "Hvor godt kunne du dette fra før?", "time": 20, "options": [
-      { "text": "Veldig godt" }, { "text": "Litt" }, { "text": "Ikke i det hele tatt" } ] }
+    {
+      "type": "info",
+      "text": "Velkommen til Kwest!\nSvar på mobilen – raske riktige svar gir flest poeng."
+    },
+    {
+      "type": "wordcloud",
+      "text": "Hva tenker du på når du hører ordet «hjerte»?",
+      "time": 30,
+      "maxWords": 1
+    },
+    {
+      "type": "quiz",
+      "text": "Hvor mange kamre har hjertet?",
+      "time": 20,
+      "options": [
+        {
+          "text": "2",
+          "correct": false
+        },
+        {
+          "text": "3",
+          "correct": false
+        },
+        {
+          "text": "4",
+          "correct": true
+        },
+        {
+          "text": "5",
+          "correct": false
+        }
+      ],
+      "explanation": "Hjertet har fire kamre: to forkamre (atrier) som tar imot blodet, og to hjertekamre (ventrikler) som pumper det ut til lungene og kroppen."
+    },
+    {
+      "type": "truefalse",
+      "text": "Blodet i lungearterien er oksygenrikt.",
+      "time": 10,
+      "correct": false
+    },
+    {
+      "type": "short",
+      "text": "Hva heter kroppens største organ?",
+      "time": 30,
+      "answers": [
+        "huden",
+        "hud"
+      ]
+    },
+    {
+      "type": "slider",
+      "text": "Hvor mange bein har et voksent menneske?",
+      "time": 30,
+      "min": 150,
+      "max": 250,
+      "step": 1,
+      "correct": 206,
+      "tolerance": 5,
+      "unit": "bein",
+      "points": "double",
+      "explanation": "Et voksent menneske har 206 bein. Nyfødte har rundt 300, men mange vokser sammen i løpet av barndommen."
+    },
+    {
+      "type": "order",
+      "text": "Sorter fra minst til størst",
+      "time": 30,
+      "items": [
+        "Celle",
+        "Vev",
+        "Organ",
+        "Organsystem"
+      ]
+    },
+    {
+      "type": "poll",
+      "text": "Hvor godt kunne du dette fra før?",
+      "time": 20,
+      "options": [
+        {
+          "text": "Veldig godt"
+        },
+        {
+          "text": "Litt"
+        },
+        {
+          "text": "Ikke i det hele tatt"
+        }
+      ]
+    }
   ]
 }

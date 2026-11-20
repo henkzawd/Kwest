@@ -542,3 +542,26 @@ select { cursor: pointer; }
 .check.top { align-items: flex-start; }
 .check.top input { margin-top: 2px; }
 .block { display: block; margin-top: 2px; font-weight: 400; }
+
+/* ---------- Forklaring ---------- */
+.exp-field { background: #fff; border-radius: 14px; padding: 12px 14px; border: 1px dashed #F0D9A6; }
+.exp-field > span { display: flex; align-items: center; gap: 4px; color: #B4630F; }
+.exp-field .tag { display: inline-block; background: var(--gold-soft); color: var(--brown); font-weight: 700; font-size: .72rem; border-radius: 99px; padding: 0 8px; margin-left: 6px; }
+.exp-input { font-size: 1rem !important; }
+/* Storskjerm */
+.exp-box { align-self: stretch; flex: 0 1 420px; background: #FFFBF0; border: 1px solid #F3E2B8; border-radius: 16px; padding: 16px 20px; font-size: clamp(1.05rem, 1.6vw, 1.4rem); line-height: 1.45; animation: fade .5s ease .3s both; overflow: auto; }
+.exp-box b { display: flex; align-items: center; gap: 6px; font-size: .8em; letter-spacing: .07em; text-transform: uppercase; color: #B4630F; margin-bottom: 6px; }
+.exp-box p { margin: 0; white-space: pre-wrap; }
+.reveal-top { align-items: stretch; }
+.reveal-top .bars { flex: 1 1 auto; }
+.reveal-split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); gap: 24px; align-items: start; }
+/* Mobil */
+.result-stack { flex: 1; display: flex; flex-direction: column; }
+.result-stack.with-exp .result { flex: 0 0 auto; padding: 22px 16px 18px; }
+.result-stack.with-exp .result-icon { width: 64px; height: 64px; font-size: 2.2rem; }
+.result-stack.with-exp .result h1 { font-size: 2rem; }
+.result.neutral { background: var(--soft); color: var(--ink); flex: 0 0 auto; padding: 22px; }
+.result-correct { margin: 4px 0 0; font-size: 1.05rem; }
+.exp-panel { flex: 1; background: #FFFBF0; border-left: 5px solid var(--gold); padding: 16px 18px; font-size: 1.05rem; line-height: 1.5; overflow: auto; }
+.exp-panel b { display: flex; align-items: center; gap: 6px; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: #B4630F; margin-bottom: 6px; }
+.exp-panel p { margin: 0; white-space: pre-wrap; }
