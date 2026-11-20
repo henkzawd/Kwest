@@ -193,7 +193,7 @@ function card(r, refresh) {
     h('a', { class: 'card-main', href: '#/rediger/' + r.id },
       h('span', { class: 'card-mark' }, questionSvg(34)),
       h('div', null,
-        h('h3', null, r.title || t('list.untitled')),
+        h('h3', null, r.is_private ? h('span', { class: 'priv', title: t('ed.privateBadge') }, icon('lock', 15)) : null, r.title || t('list.untitled')),
         r.description ? h('p', { class: 'card-desc' }, r.description) : null,
         h('p', { class: 'card-meta' }, t('list.questions', { n: r.question_count ?? '?' }),
           r.owner !== me.user.id && r.owner_name ? ' · ' + t('list.by', { name: r.owner_name }) : '',
@@ -229,7 +229,7 @@ document.addEventListener('click', () => document.querySelectorAll('.menu').forE
 async function copyQuiz(r) {
   try {
     const full = await backend.getQuiz(r.id);
-    const saved = await backend.saveQuiz({ title: t('list.copyOf', { title: full.title }), description: full.description, data: full.data });
+    const saved = await backend.saveQuiz({ title: t('list.copyOf', { title: full.title }), description: full.description, data: full.data, is_private: full.owner === me.user.id ? !!full.is_private : undefined });
     toast(t('list.copied'), 'ok');
     location.hash = '#/rediger/' + saved.id;
   } catch (e) { toast(errMsg(e), 'bad'); }
@@ -363,7 +363,7 @@ async function editorView(id) {
       const row = await backend.getQuiz(id);
       E.owner = row.owner;
       E.readonly = !canEdit(row);
-      E.quiz = { title: row.title, description: row.description || '', settings: { leaderboard: true, shuffle: false, ...(row.data?.settings || {}) }, questions: row.data?.questions || [] };
+      E.quiz = { title: row.title, description: row.description || '', is_private: !!row.is_private, settings: { leaderboard: true, shuffle: false, ...(row.data?.settings || {}) }, questions: row.data?.questions || [] };
       E.quiz.questions.forEach(q => { q.id ||= uid(8); });
       if (!E.quiz.questions.length) E.quiz.questions.push(newQuestion('quiz'));
       if (E.readonly) {
@@ -389,7 +389,7 @@ async function saveNow() {
   E.dirty = false;
   setStatus('saving');
   const q = E.quiz;
-  const payload = { id: E.id, title: q.title.trim() || t('list.untitled'), description: q.description.trim(), data: { settings: q.settings, questions: q.questions } };
+  const payload = { id: E.id, title: q.title.trim() || t('list.untitled'), description: q.description.trim(), is_private: !!q.is_private, data: { settings: q.settings, questions: q.questions } };
   E.saving = backend.saveQuiz(payload).then(r => {
     if (!E.id) {
       E.id = r.id;
@@ -423,6 +423,7 @@ function drawEditor() {
       h('a', { class: 'btn ghost small', href: '#/' }, t('ed.back')),
       title,
       h('span', { class: 'save-status', 'data-s': 'saved' }, E.id ? '✓ ' + t('ed.saved') : ''),
+      E.quiz.is_private ? h('span', { class: 'priv-chip' }, icon('lock', 14), t('ed.privateBadge')) : null,
       h('button', { class: 'btn ghost', onclick: settingsDialog, disabled: E.readonly }, '⚙ ' + t('ed.settings')),
       E.readonly ? h('button', { class: 'btn ghost', onclick: () => copyQuiz({ id: E.id }) }, t('list.copy')) : null,
       startBtn),
@@ -691,6 +692,10 @@ function settingsDialog() {
   desc.value = q.description;
   modal(t('ed.settings'), h('div', { class: 'stack' },
     h('label', { class: 'field' }, h('span', null, t('ed.description')), desc),
+    h('label', { class: 'check top' }, h('input', { type: 'checkbox', checked: !!q.is_private, onchange: e => {
+      if (!backend.hasPrivate) { e.target.checked = false; return toast(t('ed.privateMissing'), 'bad'); }
+      q.is_private = e.target.checked; changed(); drawEditor();
+    } }), h('span', null, h('b', null, t('ed.private')), h('small', { class: 'muted block' }, t('ed.privateHelp')))),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.leaderboard, onchange: e => { q.settings.leaderboard = e.target.checked; changed(); } }), t('ed.leaderboard')),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.shuffle, onchange: e => { q.settings.shuffle = e.target.checked; changed(); } }), t('ed.shuffle'))));
   desc.addEventListener('input', () => { q.description = desc.value; changed(); });

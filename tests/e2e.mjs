@@ -58,9 +58,16 @@ try {
   await teacher.getByText('Poengtavlen vises nå bare der du legger den inn').waitFor();
   await teacher.locator('.board-slide').waitFor();
   await teacher.waitForTimeout(1500);
+  await teacher.getByRole('button', { name: /Innstillinger/ }).click();
+  await teacher.getByText('Privat kwest').click();
+  await teacher.locator('.modal-wrap').click({ position: { x: 5, y: 5 } });
+  await teacher.locator('.priv-chip').waitFor();
+  await teacher.waitForTimeout(1500);
   await teacher.getByRole('link', { name: '← Tilbake' }).click();
   await teacher.locator('.card').filter({ hasText: 'Min første' }).waitFor();
   const meta = await teacher.locator('.card').filter({ hasText: 'Min første' }).locator('.card-meta').textContent();
+  if (!(await teacher.locator('.card').filter({ hasText: 'Min første' }).locator('.priv').count())) throw new Error('Mangler privat-merke');
+  step('Privat kwest merkes med lås');
   if (!meta.includes('3 spørsmål')) throw new Error('Forventet 2 spørsmål, fikk: ' + meta);
   step('Laget og lagret Kwest for hånd');
 

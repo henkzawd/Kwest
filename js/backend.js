@@ -38,8 +38,15 @@ function supabaseBackend() {
     async updatePassword(password) { ok(await client.auth.updateUser({ password })); },
     onAuth(cb) { client.auth.onAuthStateChange((event) => cb(event)); },
 
+    // «Privat» krever en ny kolonne i databasen. Finnes den ikke ennå, virker alt annet som før.
+    hasPrivate: true,
     async listQuizzes() {
-      const rows = ok(await client.from('quizzes').select(LIST_COLS).order('updated_at', { ascending: false }));
+      let res = await client.from('quizzes').select(this.hasPrivate ? LIST_COLS + ',is_private' : LIST_COLS).order('updated_at', { ascending: false });
+      if (res.error && /is_private/.test(res.error.message || '')) {
+        this.hasPrivate = false;
+        res = await client.from('quizzes').select(LIST_COLS).order('updated_at', { ascending: false });
+      }
+      const rows = ok(res);
       return rows.map(r => ({ ...r, owner_name: r.profiles?.name || r.profiles?.email || '' }));
     },
     async getQuiz(id) {
@@ -47,8 +54,17 @@ function supabaseBackend() {
     },
     async saveQuiz(q) {
       const row = { title: q.title, description: q.description, data: q.data, question_count: q.data.questions.length, updated_at: new Date().toISOString() };
-      if (q.id) return ok(await client.from('quizzes').update(row).eq('id', q.id).select('id,owner,updated_at').single());
-      return ok(await client.from('quizzes').insert(row).select('id,owner,updated_at').single());
+      if (this.hasPrivate && q.is_private !== undefined) row.is_private = !!q.is_private;
+      const send = r => (q.id
+        ? client.from('quizzes').update(r).eq('id', q.id).select('id,owner,updated_at').single()
+        : client.from('quizzes').insert(r).select('id,owner,updated_at').single());
+      let res = await send(row);
+      if (res.error && 'is_private' in row && /is_private/.test(res.error.message || '')) {
+        this.hasPrivate = false;
+        delete row.is_private;
+        res = await send(row);
+      }
+      return ok(res);
     },
     async deleteQuiz(id) { ok(await client.from('quizzes').delete().eq('id', id)); },
     async listProfiles() {
@@ -131,9 +147,11 @@ function demoBackend() {
     async updatePassword() {},
     onAuth(cb) { listeners.push(cb); },
 
+    hasPrivate: true,
     async listQuizzes() {
       const us = users();
-      return quizzes().map(({ data, ...q }) => {
+      const meId = current();
+      return quizzes().filter(q => !q.is_private || q.owner === meId).map(({ data, ...q }) => {
         const o = us.find(u => u.id === q.owner);
         return { ...q, owner_name: o?.name || o?.email || '' };
       }).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
@@ -151,11 +169,11 @@ function demoBackend() {
         const row = list.find(x => x.id === q.id);
         if (!row) throw new Error('not-found');
         if (row.owner !== u.id && !u.is_admin) throw new Error('permission denied');
-        Object.assign(row, { title: q.title, description: q.description, data: q.data, question_count: q.data.questions.length, updated_at: now });
+        Object.assign(row, { title: q.title, description: q.description, data: q.data, question_count: q.data.questions.length, updated_at: now, is_private: !!q.is_private });
         write('kwest-demo-quizzes', list);
         return { id: row.id, owner: row.owner, updated_at: now };
       }
-      const row = { id: uid(), owner: u.id, title: q.title, description: q.description, data: q.data, question_count: q.data.questions.length, created_at: now, updated_at: now };
+      const row = { id: uid(), owner: u.id, title: q.title, description: q.description, data: q.data, question_count: q.data.questions.length, is_private: !!q.is_private, created_at: now, updated_at: now };
       list.push(row);
       write('kwest-demo-quizzes', list);
       return { id: row.id, owner: row.owner, updated_at: now };

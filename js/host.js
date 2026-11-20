@@ -569,7 +569,8 @@ function sliderReveal(cur, answers) {
 
 // Poengtavle: en sti opp fjellet på dagtid. Jo flere poeng, jo lenger opp stien.
 // Toppen tilsvarer alle mulige poeng så langt i spillet, så ledende spiller klatrer gradvis gjennom kwestet.
-const TRAIL = 'M110 668 C 330 650, 420 600, 560 590 S 760 560, 800 505 S 820 430, 930 410 S 1080 380, 1090 320 S 1110 245, 1200 222 S 1265 175, 1268 140';
+// Stien går i slyngninger oppover selve fjellsiden (ikke i lufta) til flagget på toppen.
+const TRAIL = 'M110 668 C 300 650, 480 640, 640 630 S 960 610, 1120 585 S 1100 520, 1000 490 S 1080 440, 1200 425 S 1170 380, 1120 360 S 1190 300, 1230 250 S 1262 180, 1268 148';
 
 function trailScene() {
   return svg(`<svg class="scene" viewBox="0 0 1600 700" aria-hidden="true">

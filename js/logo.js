@@ -47,14 +47,17 @@ export function setFavicon() {
   document.head.append(link);
 }
 
-// Et rolig landskap med sti opp til et flagg – bakgrunn på elevsiden.
+// Et rolig landskap med sti opp til et lite spørsmålstegn på toppen – bakgrunn på elevsiden.
 export function landscape() {
   return svg(`<svg viewBox="0 0 400 120" preserveAspectRatio="xMidYMax slice" width="100%" height="100%">
     <path d="M0 120V78l60-30 45 22 70-52 55 38 40-20 60 34 70-26v76z" fill="#F7F3E6"/>
     <path d="M175 18l-14 10 8 2-9 9 15-6 10 6z" fill="#fff" opacity=".9"/>
     <path d="M0 120V96c50-14 90-6 140-16s90-26 150-12 80 10 110 4v48z" fill="#FFF3D6"/>
     <path d="M20 120c40-18 90-14 120-28s30-26 60-38 10-22 -25-34" fill="none" stroke="#F2C46B" stroke-width="2.5" stroke-dasharray="6 6" stroke-linecap="round"/>
-    <line x1="175" y1="19" x2="175" y2="1.5" stroke="#5B4520" stroke-width="2"/>
-    <path d="M175 2.5h14l-4 4 4 4h-14z" fill="#FFB424" stroke="#5B4520" stroke-width="1.2" stroke-linejoin="round"/>
+    <defs><linearGradient id="lq" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="66"><stop offset="0" stop-color="#FFE14D"/><stop offset="1" stop-color="#FF8A1F"/></linearGradient></defs>
+    <g transform="translate(169.6 0.5) scale(0.17)">
+      <path d="M15 30 C15 10, 50 6, 50 29 C50 44, 32 44, 32 60" fill="none" stroke="url(#lq)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="32" cy="85" r="10.5" fill="#FF9A22"/>
+    </g>
   </svg>`);
 }

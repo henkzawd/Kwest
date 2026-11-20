@@ -124,3 +124,9 @@ create policy "feedback_admin_delete" on public.feedback for delete to authentic
 
 grant insert on public.feedback to anon, authenticated;
 grant select, update, delete on public.feedback to authenticated;
+
+-- Private kwest: bare den som laget kwestet kan se det.
+alter table public.quizzes add column if not exists is_private boolean not null default false;
+drop policy if exists "quizzes_select" on public.quizzes;
+create policy "quizzes_select" on public.quizzes for select to authenticated
+  using (public.is_approved() and (not is_private or owner = auth.uid()));
