@@ -273,6 +273,7 @@ function importDialog(prefill = '') {
 
 export function aiPrompt(n, extra, language) {
   const no = language !== 'en';
+  const EXP = no ? '1–3 setninger om hvorfor riktig svar er riktig' : '1–3 sentences on why the correct answer is correct';
   const lines = no ? [
     'Du skal lage en quiz til undervisningsappen Kwest basert på materialet jeg har lagt ved (PowerPoint, PDF, artikkel e.l.).',
     '',
@@ -283,10 +284,15 @@ export function aiPrompt(n, extra, language) {
     '- Spørsmålstekst: helst under 120 tegn. Svaralternativer: maks 4, helst under 60 tegn hver.',
     '- Gale alternativer skal være troverdige.',
     '- Bruk "points": "double" på 1–2 ekstra viktige spørsmål.',
-    '- Gi hvert spørsmål en kort "explanation" (1–3 setninger, maks ca. 400 tegn) som forklarer HVORFOR riktig svar er riktig – den vises for elevene etter at de har svart. Bygg på materialet.',
-    extra ? `- Ekstra ønsker: ${extra}` : null,
     '',
-    'Svar KUN med gyldig JSON i nøyaktig dette formatet, uten forklaring før eller etter:',
+    'VIKTIG om feltet "explanation":',
+    '- ALLE spørsmål (unntatt "info") SKAL ha feltet "explanation".',
+    '- Det skal ligge direkte i spørsmålet, på samme nivå som "text" – aldri inne i "options", "answers" eller "items".',
+    '- Innhold: 1–3 setninger (maks ca. 400 tegn) som forklarer HVORFOR riktig svar er riktig, gjerne med en nyttig tilleggsopplysning. Bygg på materialet. Elevene ser teksten etter at de har svart.',
+    '- For "poll" og "wordcloud" (uten fasit): skriv et kort faglig poeng eller en refleksjon knyttet til spørsmålet.',
+    extra ? `- Ekstra ønsker fra læreren: ${extra}` : null,
+    '',
+    'Svar KUN med gyldig JSON i nøyaktig dette formatet (ingen annen tekst før eller etter):',
   ] : [
     'Create a quiz for the teaching app Kwest based on the material I have attached (PowerPoint, PDF, article, etc.).',
     '',
@@ -297,30 +303,38 @@ export function aiPrompt(n, extra, language) {
     '- Question text: preferably under 120 characters. Answers: max 4, preferably under 60 characters each.',
     '- Wrong answers should be plausible.',
     '- Use "points": "double" on 1–2 especially important questions.',
-    '- Give every question a short "explanation" (1–3 sentences, max ~400 characters) explaining WHY the correct answer is correct – it is shown to students after they answer. Base it on the material.',
-    extra ? `- Extra wishes: ${extra}` : null,
     '',
-    'Reply ONLY with valid JSON in exactly this format, with no explanation before or after:',
+    'IMPORTANT about the "explanation" field:',
+    '- EVERY question (except "info") MUST have the field "explanation".',
+    '- It goes directly in the question object, at the same level as "text" – never inside "options", "answers" or "items".',
+    '- Content: 1–3 sentences (max ~400 characters) explaining WHY the correct answer is correct, ideally with a useful extra fact. Base it on the material. Students see it after answering.',
+    '- For "poll" and "wordcloud" (no right answer): write a short teaching point or reflection related to the question.',
+    extra ? `- Extra wishes from the teacher: ${extra}` : null,
+    '',
+    'Reply ONLY with valid JSON in exactly this format (no other text before or after):',
   ];
+  const ex = (o) => ({ ...o, explanation: EXP });
   const example = {
     kwest: 1, title: no ? 'Tittel' : 'Title', description: no ? 'Kort beskrivelse' : 'Short description',
     questions: [
-      { type: 'quiz', text: '…', time: 20, points: 'standard', explanation: no ? 'Kort forklaring av hvorfor svaret er riktig.' : 'Short explanation of why the answer is correct.', options: [{ text: '…', correct: true }, { text: '…', correct: false }, { text: '…', correct: false }, { text: '…', correct: false }] },
-      { type: 'truefalse', text: '…', time: 10, correct: true, explanation: '…' },
-      { type: 'short', text: '…', time: 30, answers: [no ? 'svar' : 'answer', no ? 'annen skrivemåte' : 'alternative spelling'], explanation: '…' },
-      { type: 'slider', text: '…', time: 30, min: 0, max: 100, step: 1, correct: 42, tolerance: 3, unit: 'mg', explanation: '…' },
-      { type: 'order', text: '…', time: 30, items: [no ? 'første' : 'first', no ? 'andre' : 'second', no ? 'tredje' : 'third', no ? 'fjerde' : 'fourth'] },
-      { type: 'poll', text: '…', time: 20, options: [{ text: '…' }, { text: '…' }] },
-      { type: 'wordcloud', text: '…', time: 30, maxWords: 1 },
+      ex({ type: 'quiz', text: '…', time: 20, points: 'standard', options: [{ text: '…', correct: true }, { text: '…', correct: false }, { text: '…', correct: false }, { text: '…', correct: false }] }),
+      ex({ type: 'truefalse', text: '…', time: 10, correct: true }),
+      ex({ type: 'short', text: '…', time: 30, answers: [no ? 'svar' : 'answer', no ? 'annen skrivemåte' : 'alternative spelling'] }),
+      ex({ type: 'slider', text: '…', time: 30, min: 0, max: 100, step: 1, correct: 42, tolerance: 3, unit: 'mg' }),
+      ex({ type: 'order', text: '…', time: 30, items: [no ? 'første' : 'first', no ? 'andre' : 'second', no ? 'tredje' : 'third', no ? 'fjerde' : 'fourth'] }),
+      ex({ type: 'poll', text: '…', time: 20, options: [{ text: '…' }, { text: '…' }] }),
+      ex({ type: 'wordcloud', text: '…', time: 30, maxWords: 1 }),
       { type: 'info', text: '…' },
     ],
   };
   const notes = no ? [
     '',
-    'Forklaring: "time" er sekunder (5–240). "order": skriv elementene i RIKTIG rekkefølge (2–4 stk). "slider": "tolerance" er hvor langt unna som regnes som riktig. "short": list alle skrivemåter som skal godtas. "info" er en ren tekstside uten spørsmål.',
+    'Merknader til feltene: "time" er sekunder (5–240). "order": skriv elementene i RIKTIG rekkefølge (2–4 stk). "slider": "tolerance" er hvor langt unna som regnes som riktig. "short": list alle skrivemåter som skal godtas. "info" er en ren tekstside uten spørsmål og uten "explanation".',
+    'Sjekk til slutt at hvert spørsmål unntatt "info" har en utfylt "explanation".',
   ] : [
     '',
-    'Notes: "time" is seconds (5–240). "order": list the items in the CORRECT order (2–4). "slider": "tolerance" is how far off still counts as correct. "short": list every spelling to accept. "info" is a plain text slide without a question.',
+    'Field notes: "time" is seconds (5–240). "order": list the items in the CORRECT order (2–4). "slider": "tolerance" is how far off still counts as correct. "short": list every spelling to accept. "info" is a plain text slide without a question and without "explanation".',
+    'Finally, check that every question except "info" has a filled-in "explanation".',
   ];
   return [...lines.filter(l => l !== null), JSON.stringify(example, null, 1), ...notes].join('\n');
 }

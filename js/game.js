@@ -72,6 +72,36 @@ const TYPE_ALIASES = {
   scoreboard: 'scoreboard', leaderboard: 'scoreboard', poengtavle: 'scoreboard',
 };
 
+// AI-en legger av og til forklaringen under et annet navn eller inne i svaralternativene. Finn den uansett.
+const EXP_KEYS = ['explanation', 'forklaring', 'explain', 'rationale', 'begrunnelse', 'feedback', 'tilbakemelding', 'solution', 'losning', 'løsning', 'comment', 'kommentar', 'note', 'notes'];
+function pickExp(o) {
+  if (!o || typeof o !== 'object') return '';
+  for (const k of Object.keys(o)) {
+    if (EXP_KEYS.includes(k.toLowerCase().replace(/[\s_-]/g, ''))) {
+      const v = o[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+      if (v && typeof v === 'object' && typeof (v.text ?? v.no ?? v.nb) === 'string') return String(v.text ?? v.no ?? v.nb).trim();
+    }
+  }
+  return '';
+}
+function findExplanation(r) {
+  const direct = pickExp(r);
+  if (direct) return direct;
+  // Inne i svaralternativene: bruk forklaringen på det riktige alternativet, ellers den første som finnes.
+  const lists = [r.options, r.answers, r.items].filter(Array.isArray);
+  for (const list of lists) {
+    const right = list.find(o => o && typeof o === 'object' && (o.correct || o.isCorrect) && pickExp(o));
+    if (right) return pickExp(right);
+  }
+  for (const list of lists) {
+    const any = list.find(o => pickExp(o));
+    if (any) return pickExp(any);
+  }
+  if (r.answer && typeof r.answer === 'object') return pickExp(r.answer);
+  return '';
+}
+
 export function normalizeQuestion(r) {
   if (!r || typeof r !== 'object') return null;
   const type = TYPE_ALIASES[str(r.type).toLowerCase().replace(/[\s_\-/]/g, '')] || (r.options ? 'quiz' : 'info');
@@ -80,7 +110,10 @@ export function normalizeQuestion(r) {
   q.image = typeof r.image === 'string' && /^(data:image\/|https:\/\/)/.test(r.image) ? r.image : '';
   q.audio = typeof r.audio === 'string' && /^(data:audio\/|https:\/\/)/.test(r.audio) ? r.audio : '';
   q.autoplay = r.autoplay !== false;
-  q.explanation = str(r.explanation ?? r.forklaring).slice(0, 600);
+  q.explanation = findExplanation(r)
+    .replace(/^\s*(forklaring|explanation)\s*:\s*/i, '')
+    .replace(/^1[–-]3 (setninger|sentences) .*$/i, '') // eksempelteksten kopiert uendret
+    .trim().slice(0, 600);
   if (r.time !== undefined || r.timeLimit !== undefined) q.time = Math.max(0, Math.min(600, Math.round(num(r.time ?? r.timeLimit, q.time))));
   if (['standard', 'double', 'none'].includes(r.points)) q.points = r.points;
   if (type === 'quiz' || type === 'poll') {
