@@ -365,6 +365,35 @@ try {
   await host.getByRole('button', { name: 'Avslutt' }).last().click();
   await host.waitForURL(/studio/);
 
+  // Hjemmelekse: læreren lager en lenke, en elev tar leksen alene, læreren ser anonyme resultater
+  await host.getByRole('button', { name: /Hjemmelekse/ }).click();
+  await host.locator('.modal').getByRole('button', { name: /Lag ny lenke/ }).click();
+  const hwLink = await host.locator('.hw-item .invite-link').first().textContent();
+  await host.locator('.modal').getByRole('button', { name: 'Vis QR-kode' }).click();
+  await host.locator('.hw-qr svg').waitFor();
+  await host.keyboard.press('Escape');
+  await p1.goto(hwLink);
+  await p1.getByRole('button', { name: 'Start' }).click();
+  for (let guard = 0; guard < 30 && !(await p1.getByText('Kwest fullført!').count()); guard++) {
+    if (await p1.locator('.pbtn', { hasText: /^4$/ }).count()) await p1.locator('.pbtn', { hasText: /^4$/ }).click();
+    else if (await p1.locator('.pbtn').count()) await p1.locator('.pbtn').first().click();
+    else if (await p1.locator('.ptext input').count()) { await p1.locator('.ptext input').first().fill('Hjerte'); await p1.getByRole('button', { name: 'Send' }).click(); }
+    else if (await p1.getByRole('button', { name: /Neste|Se resultatet/ }).count()) { await shot(p1, '28-mobil-lekse-' + guard); await p1.getByRole('button', { name: /Neste|Se resultatet/ }).click(); }
+    else await p1.waitForTimeout(200);
+  }
+  await p1.getByText('2 av 2 riktige').waitFor();
+  await p1.getByText('sendt anonymt').waitFor();
+  await shot(p1, '29-mobil-lekse-ferdig');
+  await host.getByRole('button', { name: /Hjemmelekse/ }).click();
+  await host.locator('.hw-item').getByText('1 har fullført').waitFor();
+  await host.locator('.hw-results summary').click();
+  await shot(host, '30-lekse-resultater');
+  await host.locator('.modal').getByRole('button', { name: 'Steng', exact: true }).click();
+  await host.locator('.hw-item.closed').waitFor();
+  await p1.goto(hwLink);
+  await p1.getByText('Leksen er stengt').waitFor();
+  step('Hjemmelekse: elev tok leksen anonymt, læreren ser resultatet og kan stenge lenken');
+
   // Engelsk
   await p2.goto(URL0);
   await p2.getByRole('button', { name: 'English' }).click();

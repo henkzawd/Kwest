@@ -2,7 +2,7 @@
 import { h, svg, clear, debounce, modal, confirmBox, toast, readImage, download, copyText, fmtDate, baseUrl, uid } from './util.js';
 import { t, lang, langButton } from './i18n.js';
 import { backend } from './backend.js';
-import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, DISCUSS_TYPES, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz } from './game.js';
+import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, DISCUSS_TYPES, SCORED, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz } from './game.js';
 import { feedbackDialog } from './feedback.js';
 import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
@@ -286,6 +286,7 @@ function card(r, refresh) {
         editable ? [t('list.copy'), () => copyQuiz(r)] : null,
         editable ? [t('labels.title'), () => labelsDialog(r, refresh)] : null,
         ['🧪 ' + t('test.button'), () => { location.href = 'host.html?id=' + r.id + '&test=1'; }],
+        r.owner === me.user.id ? ['🏠 ' + t('hw.button'), () => homeworkDialog(r.id)] : null,
         [t('list.export'), () => exportRow(r)],
         editable ? [t('list.delete'), async () => {
           if (!(await confirmBox(t('list.delete'), t('list.deleteConfirm', { title: r.title }), t('common.delete'), t('common.cancel')))) return;
@@ -586,6 +587,7 @@ function drawEditor() {
         h('button', { class: 'icon-btn redo-btn', title: t('ed.redo'), 'aria-label': t('ed.redo'), disabled: !E.redo.length, onclick: () => undo(false) }, icon('redo'))),
       h('button', { class: 'btn ghost', onclick: settingsDialog, disabled: E.readonly }, '⚙ ' + t('ed.settings')),
       E.readonly ? h('button', { class: 'btn ghost', onclick: () => copyQuiz({ id: E.id }) }, t('list.copy')) : null,
+      E.readonly ? null : h('button', { class: 'btn ghost', title: t('hw.help'), onclick: () => homeworkDialog(E.id) }, '🏠 ' + t('hw.button')),
       h('button', { class: 'btn ghost', title: t('test.help'), onclick: () => startGame(true) }, '🧪 ' + t('test.button')),
       startBtn),
     E.readonly ? h('p', { class: 'notice' }, t('ed.readonly', { name: E.ownerName || '?' })) : null,
@@ -918,6 +920,101 @@ async function bankDialog() {
     changed(); drawList(); drawPanel();
     toast(t('bank.added', { n: copies.length }), 'ok');
   };
+}
+
+// ---------- Hjemmelekse: lenke elevene tar i sitt eget tempo, med anonyme resultater ----------
+async function homeworkDialog(quizId) {
+  if (E.id === null && document.querySelector('.ed-panel')) { E.dirty = true; await saveNow(); quizId = E.id; }
+  if (!quizId) return;
+  const body = h('div', { class: 'stack hw-dialog' }, h('div', { class: 'spinner' }));
+  const m = modal(t('hw.title'), body);
+  m.el.querySelector('.modal').classList.add('wide');
+  const load = async () => {
+    let list;
+    try { list = await backend.listAssignments(quizId); }
+    catch (e) {
+      const missing = /assignment|relation|schema cache|does not exist/i.test(String(e?.message));
+      clear(body).append(h('p', { class: 'form-error' }, missing ? t('hw.missing') : errMsg(e)));
+      return;
+    }
+    clear(body).append(
+      h('p', null, t('hw.intro')),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: create }, '+ ' + t('hw.create'))),
+      ...(list.length ? list.map(item) : [h('p', { class: 'muted' }, t('hw.none'))]));
+  };
+  const create = async () => {
+    try {
+      if (E.id === quizId && E.dirty) await saveNow();
+      const full = await backend.getQuiz(quizId);
+      if (validateQuiz({ questions: full.data?.questions || [] }).length || !full.data?.questions?.length) return toast(t('hw.fixFirst'), 'bad');
+      await backend.createAssignment({ quiz_id: quizId, title: full.title, data: full.data });
+      toast(t('hw.created'), 'ok');
+      load();
+    } catch (e) { toast(errMsg(e), 'bad'); }
+  };
+  const item = a => {
+    const link = baseUrl() + '?lekse=' + a.code;
+    const stats = hwStats(a);
+    const scored = stats.filter(x => x.scored);
+    const tot = scored.reduce((s, x) => s + x.n, 0), ok = scored.reduce((s, x) => s + x.ok, 0);
+    const qrBox = h('div', { class: 'hw-qr hidden' });
+    const hard = scored.filter(x => x.n && x.pct < 100).sort((x, y) => x.pct - y.pct).slice(0, 3);
+    return h('article', { class: 'hw-item' + (a.is_open ? '' : ' closed') },
+      h('div', { class: 'hw-top' },
+        h('b', null, fmtDate(a.created_at, lang)),
+        h('span', { class: 'hw-status' }, a.is_open ? t('hw.open') : t('hw.closedTag')),
+        h('span', { class: 'muted' }, t('hw.done', { n: a.results.length })),
+        tot ? h('span', { class: 'muted' }, ' · ' + t('hw.avg', { n: Math.round(100 * ok / tot) })) : null),
+      h('div', { class: 'row hw-link' },
+        h('code', { class: 'invite-link' }, link),
+        h('button', { class: 'btn ghost small', onclick: async () => { if (await copyText(link)) toast(t('users.linkCopied'), 'ok'); } }, t('users.copyLink')),
+        h('button', { class: 'btn ghost small', onclick: () => {
+          if (!qrBox.firstChild && window.qrcode) {
+            const qr = window.qrcode(0, 'M'); qr.addData(link); qr.make();
+            const el = svg(qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true }));
+            el.removeAttribute('width'); el.removeAttribute('height');
+            qrBox.append(el);
+          }
+          qrBox.classList.toggle('hidden');
+        } }, t('hw.qr'))),
+      qrBox,
+      h('div', { class: 'row' },
+        h('button', { class: 'btn ghost small', onclick: async () => {
+          try { await backend.updateAssignment(a.id, { is_open: !a.is_open }); load(); } catch (e) { toast(errMsg(e), 'bad'); }
+        } }, a.is_open ? t('hw.close') : t('hw.reopen')),
+        h('button', { class: 'btn ghost small danger-text', onclick: async () => {
+          if (!(await confirmBox(t('common.delete'), t('hw.deleteConfirm'), t('common.delete'), t('common.cancel')))) return;
+          try { await backend.deleteAssignment(a.id); load(); } catch (e) { toast(errMsg(e), 'bad'); }
+        } }, t('common.delete'))),
+      a.results.length ? h('details', { class: 'hw-results' },
+        h('summary', null, t('hw.results')),
+        hard.length ? h('div', { class: 'hw-hard' }, h('h4', null, '🔍 ' + t('hw.hardest')), hard.map(x => hwRow(x, true))) : null,
+        h('h4', null, t('hw.allQuestions')),
+        stats.map(x => hwRow(x, false))) : null);
+  };
+  load();
+}
+
+function hwStats(a) {
+  return (a.data?.questions || []).map((q, i) => {
+    const ans = a.results.map(r => r.answers?.[i]).filter(Boolean);
+    const scored = SCORED.includes(q.type);
+    const ok = ans.filter(x => x.ok).length;
+    const groups = {};
+    ans.forEach(x => { if (!x.ok && x.a) { const k = String(x.a).toLowerCase().trim(); (groups[k] ||= { text: x.a, n: 0 }).n++; } });
+    return { q, i, scored, n: ans.length, ok, pct: ans.length ? Math.round(100 * ok / ans.length) : 0, answers: Object.values(groups).sort((x, y) => y.n - x.n).slice(0, 4) };
+  }).filter(x => x.q.type !== 'info' && x.q.type !== 'scoreboard');
+}
+
+function hwRow(x, full) {
+  const text = (x.i + 1) + '. ' + (x.q.text || t('type.' + x.q.type));
+  return h('div', { class: 'hw-row' + (full ? ' full' : '') },
+    h('div', { class: 'hw-row-top' },
+      h('span', { class: 'hw-row-text' }, text),
+      x.scored ? h('span', { class: 'hw-pct', style: { '--p': x.pct + '%' } }, h('span', null, x.n ? x.pct + ' %' : '–')) : h('span', { class: 'muted small-text' }, t('hw.nAnswers', { n: x.n }))),
+    (full || !x.scored) && x.answers.length ? h('p', { class: 'small-text muted' }, (x.scored ? t('review.wrong') : t('hw.answers')) + ': ',
+      x.answers.map((w, k) => [k ? ', ' : '', h('b', null, w.text), ' (' + w.n + ')'])) : null,
+    full && x.q.explanation ? h('p', { class: 'small-text' }, '📖 ' + x.q.explanation) : null);
 }
 
 function settingsDialog() {

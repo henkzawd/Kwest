@@ -260,7 +260,17 @@ function sent() {
 
 function answerView(st) {
   S.view = () => answerView(st);
-  const q = st.q;
+  const body = answerBody(st.q, sendAnswer);
+  const deadline = Date.now() + (st.remaining || 0);
+  const timeEl = h('span', { class: 'ptime' });
+  const tick = () => { timeEl.textContent = Math.max(0, Math.ceil((deadline - Date.now()) / 1000)); };
+  tick();
+  S.timer = setInterval(tick, 250);
+  frame(h('div', { class: 'answer-wrap' }, h('div', { class: 'pq-head' }, h('span', null, t('play.question', { n: st.qi + 1, total: st.total })), timeEl), body), { bar: true, cls: 'answering' });
+}
+
+// Svarfeltene for hver spørsmålstype. send(verdi) kalles når eleven svarer (brukes også i hjemmelekse).
+function answerBody(q, sendAnswer) {
   let body;
   if (q.type === 'quiz' || q.type === 'poll' || q.type === 'truefalse') {
     const labels = q.type === 'truefalse' ? [t('ed.true'), t('ed.false')] : q.labels;
@@ -293,18 +303,13 @@ function answerView(st) {
       h('div', { class: 'range-ends' }, h('span', null, q.min), h('span', null, q.max)),
       h('button', { class: 'btn primary huge', onclick: () => sendAnswer(Number(range.value)) }, t('play.send')));
   } else if (q.type === 'order') {
-    body = dragList(q);
+    body = dragList(q, sendAnswer);
   }
-  const deadline = Date.now() + (st.remaining || 0);
-  const timeEl = h('span', { class: 'ptime' });
-  const tick = () => { timeEl.textContent = Math.max(0, Math.ceil((deadline - Date.now()) / 1000)); };
-  tick();
-  S.timer = setInterval(tick, 250);
-  frame(h('div', { class: 'answer-wrap' }, h('div', { class: 'pq-head' }, h('span', null, t('play.question', { n: st.qi + 1, total: st.total })), timeEl), body), { bar: true, cls: 'answering' });
+  return body;
 }
 
 // Rekkefølge: eleven drar feltene opp og ned. Plassnummeret (1 = øverst = først) står i hjørnet.
-function dragList(q) {
+function dragList(q, sendAnswer) {
   const order = q.labels.map((_, i) => i); // visningsindekser, øverst først
   const list = h('div', { class: 'drag-list' });
   const rows = q.labels.map((label, i) => h('div', { class: 'drag-row', style: { background: COLORS[i] } },
@@ -429,5 +434,6 @@ function finalView(st) {
 
 // Start
 if (backend.mode === 'demo') { document.body.classList.add('is-demo'); document.body.append(h('div', { class: 'demo-banner' }, t('demo.banner'))); }
-if (S.pin && S.name && S.id) connect();
+if (qs('lekse')) import('./homework.js').then(m => m.startHomework(qs('lekse'), { frame, answerBody, setView: fn => { S.view = fn; } }));
+else if (S.pin && S.name && S.id) connect();
 else joinView();

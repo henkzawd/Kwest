@@ -130,3 +130,67 @@ alter table public.quizzes add column if not exists is_private boolean not null 
 drop policy if exists "quizzes_select" on public.quizzes;
 create policy "quizzes_select" on public.quizzes for select to authenticated
   using (public.is_approved() and (not is_private or owner = auth.uid()));
+
+-- Hjemmelekse: elevene tar et kwest i sitt eget tempo via en lenke.
+-- Ingen navn lagres – bare anonyme svar (riktig/galt og svaret) per spørsmål.
+create table if not exists public.assignments (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  quiz_id uuid references public.quizzes(id) on delete set null,
+  owner uuid not null references public.profiles(id) on delete cascade default auth.uid(),
+  title text not null default '',
+  data jsonb not null default '{}'::jsonb,
+  is_open boolean not null default true,
+  created_at timestamptz not null default now()
+);
+create index if not exists assignments_quiz_idx on public.assignments(quiz_id);
+
+create table if not exists public.assignment_results (
+  id uuid primary key default gen_random_uuid(),
+  assignment_id uuid not null references public.assignments(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  score integer not null default 0,
+  answers jsonb not null default '[]'::jsonb
+);
+create index if not exists assignment_results_idx on public.assignment_results(assignment_id);
+
+alter table public.assignments enable row level security;
+alter table public.assignment_results enable row level security;
+
+drop policy if exists "assignments_owner" on public.assignments;
+create policy "assignments_owner" on public.assignments for all to authenticated
+  using (public.is_approved() and owner = auth.uid())
+  with check (public.is_approved() and owner = auth.uid());
+
+drop policy if exists "assignment_results_owner" on public.assignment_results;
+create policy "assignment_results_owner" on public.assignment_results for select to authenticated
+  using (exists (select 1 from public.assignments a where a.id = assignment_id and a.owner = auth.uid()));
+
+grant select, insert, update, delete on public.assignments to authenticated;
+grant select on public.assignment_results to authenticated;
+
+-- Elevene (uten innlogging) kan bare hente en lekse og sende inn svar – via disse to funksjonene.
+create or replace function public.get_assignment(p_code text) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('title', a.title, 'data', a.data, 'open', a.is_open)
+  from public.assignments a where a.code = p_code;
+$$;
+
+create or replace function public.submit_assignment(p_code text, p_score integer, p_answers jsonb) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare a_id uuid;
+begin
+  select id into a_id from public.assignments where code = p_code and is_open;
+  if a_id is null then return false; end if;
+  if p_answers is null or jsonb_typeof(p_answers) <> 'array' then return false; end if;
+  if jsonb_array_length(p_answers) > 200 or octet_length(p_answers::text) > 30000 then return false; end if;
+  insert into public.assignment_results (assignment_id, score, answers)
+  values (a_id, greatest(0, least(coalesce(p_score, 0), 1000000)), p_answers);
+  return true;
+end;
+$$;
+
+revoke all on function public.get_assignment(text) from public;
+revoke all on function public.submit_assignment(text, integer, jsonb) from public;
+grant execute on function public.get_assignment(text) to anon, authenticated;
+grant execute on function public.submit_assignment(text, integer, jsonb) to anon, authenticated;

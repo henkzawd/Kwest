@@ -644,3 +644,35 @@ select { cursor: pointer; }
 body.is-demo .react-bar { padding-bottom: 64px; }
 .test-tag { background: #E8F1FF; color: #1F5FD1; font-weight: 800; border-radius: 999px; padding: .25em .9em; }
 .lobby-top.test { grid-template-columns: 1fr; background: #EEF4FF; }
+
+/* ---------- Hjemmelekse ---------- */
+.pmain.hw { justify-content: flex-start; padding-top: 24px; }
+.hw-intro h1 { font-size: 1.8rem; }
+.hw-card { width: min(560px, 100%); display: flex; flex-direction: column; gap: 14px; text-align: left; }
+.hw-card.answering .pgrid { min-height: 46vh; }
+.hw-head { display: flex; flex-direction: column; gap: 8px; }
+.hw-q { font-size: 1.5rem; margin: 0; white-space: pre-wrap; }
+.hw-img { max-height: 32vh; object-fit: contain; border-radius: 12px; align-self: center; }
+.hw-head audio { width: 100%; }
+.hw-mark { align-self: flex-start; }
+.hw-result { width: min(560px, 100%); min-height: 70vh; }
+.hw-next { padding: 14px; display: flex; justify-content: center; }
+.hw-dialog .invite-link { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hw-item { border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.hw-item.closed { background: var(--soft); }
+.hw-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.hw-status { background: #E9F6EC; color: var(--ok); border-radius: 999px; padding: 0 .7em; font-weight: 700; font-size: .8rem; }
+.hw-item.closed .hw-status { background: var(--line); color: var(--muted); }
+.hw-link { align-items: center; }
+.hw-qr { width: 220px; background: #fff; padding: 8px; border-radius: 12px; box-shadow: var(--shadow); }
+.hw-qr svg { width: 100%; height: auto; display: block; }
+.hw-results summary { cursor: pointer; font-weight: 700; }
+.hw-results h4 { margin: 14px 0 6px; }
+.hw-hard .hw-row { background: #FFF6F6; }
+.hw-row { padding: 8px 10px; border-radius: 10px; background: var(--soft); margin-bottom: 6px; }
+.hw-row p { margin: 4px 0 0; }
+.hw-row-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.hw-row-text { flex: 1; min-width: 0; font-weight: 600; }
+.hw-pct { flex: none; width: 120px; height: 22px; border-radius: 999px; background: #F3D3D6; position: relative; overflow: hidden; font-size: .8rem; font-weight: 800; }
+.hw-pct::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p); background: var(--ok); opacity: .85; }
+.hw-pct span { position: relative; display: block; text-align: center; line-height: 22px; color: var(--ink); }

@@ -40,6 +40,23 @@ Kwest er testet med 60 elever i samme spill.
 
 Andre funksjoner: lyd på spørsmål og infosider (lenke eller opplastet .mp3/.wav), kopiere kollegers kwest til sine egne, nedlasting av resultater, poengtavle mellom spørsmålene, «riktige på rad», dobbel poeng, stokking av svaralternativer, låsing av spillet, fjerne elever, fullskjerm, norsk og engelsk.
 
+## I klasserommet
+
+- **Lag:** Velg antall lag (2–8) i lobbyen. Elevene fordeles tilfeldig og jevnt, og lagene konkurrerer på snittpoeng (så det er rettferdig selv om lagene er ulikt store).
+- **Diskuter med sidemannen:** Huk av **Diskusjon (to runder)** på et flervalg-, sant/usant- eller avstemningsspørsmål – eller trykk **💬 Diskuter** mens spørsmålet pågår. Elevene svarer, diskuterer, og svarer på nytt. Storskjermen viser svarene **før → etter**. Bare andre runde gir poeng.
+- **Finale:** Slå på **Finale** under ⚙ Innstillinger, så teller det siste spørsmålet dobbelt og annonseres som «Finale!».
+- **Største klatrer:** Poengtavlen viser hvem som klatret flest plasser, og eleven får beskjed på mobilen.
+- **Reaksjoner:** Elevene kan sende 🐐 og ⛰️ som flyr over storskjermen i lobbyen og mellom spørsmålene. Slå av med knappen øverst på storskjermen.
+- **Gå gjennom de vanskeligste:** Etter pallen kan du vise de tre spørsmålene flest svarte feil på, med riktig svar, vanligste gale svar og forklaring.
+
+## Før og etter timen
+
+- **Prøvekjør:** Spill gjennom kwestet med fem testelever som svarer tilfeldig, før du bruker det i klassen. Ingenting lagres.
+- **Hjemmelekse:** Lag en lenke elevene kan ta kwestet med alene, når de vil. De ser riktig svar og forklaring etter hvert spørsmål. Ingen navn lagres – du ser bare hvor mange som har tatt den og hvor mange prosent som svarte riktig på hvert spørsmål. Du kan stenge lenken når du vil.
+- **Etiketter:** Gi kwestene etiketter (f.eks. «Farmakologi» eller «4. semester») og trykk på en etikett i oversikten for å vise bare dem.
+- **Hent fra andre kwest:** Søk i alle kwest du har tilgang til og kopier enkeltspørsmål inn i ditt eget.
+- **Angre:** Angre- og gjør om-knappene (eller Ctrl+Z / Ctrl+Y) tar tilbake endringer i redigeringen.
+
 ## Lage Kwest med AI (fra PowerPoint, PDF, artikler)
 
 1. Trykk **Lag med AI** på lærersiden og velg antall spørsmål.
