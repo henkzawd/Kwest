@@ -17,12 +17,12 @@ Kwest består av to deler:
 4. På neste side:
    - **Framework Preset:** velg **Other**.
    - Ikke endre noe annet. Trykk **Deploy**.
-5. Gå til **Settings** → **Domains**, trykk **Edit** på adressen og skriv `kwesting.vercel.app`.
+5. Gå til **Settings** → **Domains**, trykk **Edit** på adressen og skriv `kwestlog.vercel.app`.
 
 Vercel publiserer automatisk på nytt hver gang Claude oppdaterer hovedversjonen (main).
 
-Nettsiden blir: **https://kwesting.vercel.app/**
-Lærersiden (Kwest Studio) blir: **https://kwesting.vercel.app/studio**
+Nettsiden blir: **https://kwestlog.vercel.app/**
+Lærersiden (Kwest Studio) blir: **https://kwestlog.vercel.app/studio**
 
 ---
 
@@ -43,7 +43,7 @@ Lærersiden (Kwest Studio) blir: **https://kwesting.vercel.app/studio**
    - Slå av **Confirm email** og trykk **Save**.
 5. **Fortell Supabase hvor nettsiden ligger:**
    - **Authentication** → **URL Configuration**.
-   - Skriv inn `https://kwesting.vercel.app/studio` i **Site URL** og trykk **Save**.
+   - Skriv inn `https://kwestlog.vercel.app/studio` i **Site URL** og trykk **Save**.
 6. **Hent de to tilkoblingsverdiene:**
    - Trykk **Connect** øverst på prosjektsiden (eller **Project Settings** → **API Keys**).
    - Kopier **Project URL** (ser ut som `https://abcdefgh.supabase.co`).
@@ -59,7 +59,7 @@ Claude legger verdiene inn i Kwest og publiserer på nytt.
 
 ## Del 3 – Første innlogging
 
-1. Gå til **https://kwesting.vercel.app/studio**
+1. Gå til **https://kwestlog.vercel.app/studio**
 2. Trykk **Lag konto** og lag kontoen din. **Den første kontoen blir automatisk administrator.**
 3. Inviter kolleger: gå til fanen **Brukere**, kopier lenken og send den til dem. Når de har laget konto, huker du av **Godkjent** ved navnet deres.
 
