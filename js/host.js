@@ -2,14 +2,17 @@
 import { h, svg, clear, qs, makePin, shuffle, baseUrl, normText, confirmBox, toast } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
-import { COLORS, SHAPES, SCORED, colorIndex, playable, judge, speedPoints, basePoints } from './game.js';
+import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints } from './game.js';
 import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
 
 setFavicon();
 const app = document.getElementById('app');
 const quizId = qs('id');
-const STORE = 'kwest-host-' + quizId;
+// Prøvekjøring: fem testelever svarer tilfeldig, ingen kan bli med og ingenting sendes ut.
+const TEST = qs('test') === '1';
+const STORE = (TEST ? 'kwest-test-' : 'kwest-host-') + quizId;
+const BOTS = ['Bot Bjørn', 'Bot Berit', 'Bot Bendik', 'Bot Bodil', 'Bot Brage'];
 const INTRO_MS = 3000;
 
 let quiz = null;
@@ -24,12 +27,26 @@ const shownChips = new Set();
 
 const G = {
   pin: null, phase: 'lobby', qi: -1, locked: false,
-  players: {}, // id -> { name, score, streak, ok, pts, answered, joinedAt }
+  players: {}, // id -> { name, score, streak, ok, pts, answered, joinedAt, climb }
   answers: {}, // id -> { value, t }
   map: null, labels: null, qStart: 0, hidden: [],
+  teams: 0, teamOf: {}, // antall lag (0 = uten lag) og hvilket lag hver elev er på
+  reactions: true,
+  round: 1, first: null, firstN: 0, discussNow: false, // «diskuter og stem igjen»
+  climber: null, // { id, n } største klatrer på siste spørsmål
 };
+let reviewAt = -1; // gjennomgang av de vanskeligste spørsmålene etter pallen
 
-function q() { return quiz && G.qi >= 0 ? playable(quiz.questions[G.qi]) : null; }
+// Spørsmål nr. i klart for spilling (finalen får dobbel poeng).
+function qAt(i) {
+  const c = playable(quiz.questions[i]);
+  if (i === finaleIndex(quiz)) c.points = 'double';
+  return c;
+}
+function q() { return quiz && G.qi >= 0 ? qAt(G.qi) : null; }
+function isFinale() { return G.qi >= 0 && G.qi === finaleIndex(quiz); }
+function canDiscuss(cur) { return DISCUSS_TYPES.includes(cur.type); }
+function teamName(i) { return t('team.' + i); }
 function total() { return quiz.questions.length; }
 function playerIds() { return Object.keys(G.players).sort((a, b) => G.players[a].joinedAt - G.players[b].joinedAt); }
 function persist() { try { sessionStorage.setItem(STORE, JSON.stringify(G)); } catch { /* fullt */ } }
@@ -57,10 +74,19 @@ async function init() {
   if (!G.pin) G.pin = makePin();
 
   // To kanaler: «ut» (læreren → alle elever) og «inn» (elever → bare læreren).
+  if (TEST) {
+    if (!restored) BOTS.forEach((name, i) => onJoin({ id: 'bot' + i, name }));
+    setInterval(botReact, 2500);
+    if (restored && G.phase === 'question') { startTicker(); botsAnswer(); }
+    render();
+    persist();
+    return;
+  }
   ch = backend.channel(G.pin);
   inn = backend.channel(G.pin + '-inn');
   inn.on('join', onJoin);
   inn.on('answer', onAnswer);
+  inn.on('react', onReact);
   await Promise.all([ch.subscribe(), inn.subscribe()]);
   if (restored) {
     toast(t('host.restore'));
@@ -95,6 +121,7 @@ function onJoin(p) {
   if (G.locked) return reply(id, { ok: false, error: 'locked' });
   if (Object.values(G.players).some(pl => pl.name.toLowerCase() === name.toLowerCase())) return reply(id, { ok: false, error: 'taken' });
   G.players[id] = { name, score: 0, streak: 0, ok: null, pts: 0, answered: false, joinedAt: Date.now(), history: {} };
+  if (G.teams) G.teamOf[id] = smallestTeam();
   reply(id, { ok: true, score: 0 });
   persist();
   if (G.phase === 'lobby') renderLobby(); else updateCount();
@@ -135,7 +162,7 @@ function flushOut() {
 }
 
 function onAnswer(p) {
-  if (G.phase !== 'question' || p.qi !== G.qi || !G.players[p.id] || G.answers[p.id]) return;
+  if (G.phase !== 'question' || p.qi !== G.qi || (p.round || 1) !== G.round || !G.players[p.id] || G.answers[p.id]) return;
   G.answers[p.id] = { value: p.value, t: Date.now() - G.qStart };
   persist();
   updateCount();
@@ -146,8 +173,68 @@ function onAnswer(p) {
 function kick(id) {
   delete G.players[id];
   delete G.answers[id];
-  ch.send('kick', { id });
+  delete G.teamOf[id];
+  ch?.send('kick', { id });
   persist();
+  render();
+}
+
+// ---------- Lag ----------
+function smallestTeam() {
+  const counts = Array(G.teams).fill(0);
+  Object.keys(G.players).forEach(id => { if (G.teamOf[id] !== undefined && counts[G.teamOf[id]] !== undefined) counts[G.teamOf[id]]++; });
+  const min = Math.min(...counts);
+  const options = counts.map((c, i) => (c === min ? i : -1)).filter(i => i >= 0);
+  return options[Math.floor(Math.random() * options.length)];
+}
+function setTeams(n) {
+  G.teams = n;
+  G.teamOf = {};
+  if (n) shuffle(Object.keys(G.players)).forEach((id, i) => { G.teamOf[id] = i % n; });
+  persist();
+  broadcast();
+  render();
+}
+// Lagene rangert etter snittpoeng (så ulike store lag blir rettferdig).
+function rankedTeams() {
+  if (!G.teams) return [];
+  const list = [...Array(G.teams).keys()].map(i => {
+    const ids = Object.keys(G.players).filter(id => G.teamOf[id] === i);
+    const avg = f => (ids.length ? Math.round(ids.reduce((s, id) => s + f(G.players[id]), 0) / ids.length) : 0);
+    return { team: i, name: teamName(i), color: TEAM_COLORS[i], size: ids.length, score: avg(p => p.score), pts: avg(p => p.pts || 0), streak: 0 };
+  }).filter(x => x.size);
+  list.sort((a, b) => b.score - a.score);
+  let rank = 0, last = null;
+  list.forEach((x, i) => { if (x.score !== last) { rank = i + 1; last = x.score; } x.rank = rank; });
+  return list;
+}
+
+// ---------- Reaksjoner (🐐 og ⛰️) ----------
+const REACT_PHASES = ['lobby', 'reveal', 'scoreboard', 'podium', 'discuss'];
+const lastReact = {};
+let floating = 0;
+function onReact(p) {
+  const id = String(p.id || '');
+  if (!G.reactions || !G.players[id] || !REACT_PHASES.includes(G.phase)) return;
+  const now = Date.now();
+  if (now - (lastReact[id] || 0) < 6000) return; // mobilen sender høyst hvert 8. sekund
+  lastReact[id] = now;
+  for (const [k, emoji] of Object.entries(REACTIONS)) {
+    const n = Math.max(0, Math.min(5, Math.round(Number(p[k]) || 0)));
+    for (let i = 0; i < n; i++) setTimeout(() => floatEmoji(emoji), i * 180 + Math.random() * 300);
+  }
+}
+function floatEmoji(emoji) {
+  if (floating > 40 || !G.reactions) return;
+  floating++;
+  const el = h('span', { class: 'react-float', 'aria-hidden': 'true', style: { left: (4 + Math.random() * 92) + '%', '--drift': (Math.random() * 80 - 40) + 'px', '--dur': (2.6 + Math.random() * 1.4) + 's', fontSize: (2 + Math.random() * 1.6) + 'rem' } }, emoji);
+  document.body.append(el);
+  setTimeout(() => { el.remove(); floating--; }, 4200);
+}
+function toggleReactions() {
+  G.reactions = !G.reactions;
+  persist();
+  broadcast();
   render();
 }
 
@@ -163,17 +250,20 @@ function ranked() {
 }
 
 function statePayload() {
-  const st = { phase: G.phase, qi: G.qi, total: quiz ? total() : 0 };
+  const st = { phase: G.phase, qi: G.qi, total: quiz ? total() : 0, round: G.round, rx: G.reactions };
+  if (G.teams) st.teams = { n: G.teams, of: G.teamOf };
   const cur = q();
+  const qInfo = () => ({ type: cur.type, labels: G.labels, maxWords: cur.maxWords, min: cur.min, max: cur.max, step: cur.step, unit: cur.unit, finale: isFinale() || undefined });
   if (G.phase === 'intro' && cur) {
     st.startsIn = Math.max(0, (G.introEnd || 0) - Date.now());
     st.remaining = cur.time * 1000;
-    st.q = { type: cur.type, labels: G.labels, maxWords: cur.maxWords, min: cur.min, max: cur.max, step: cur.step, unit: cur.unit };
+    st.q = qInfo();
   }
   if (G.phase === 'question' && cur) {
     st.remaining = Math.max(0, G.qStart + cur.time * 1000 - Date.now());
-    st.q = { type: cur.type, labels: G.labels, maxWords: cur.maxWords, min: cur.min, max: cur.max, step: cur.step, unit: cur.unit };
+    st.q = qInfo();
   }
+  if (G.phase === 'discuss' && cur) st.q = { type: cur.type, labels: G.labels };
   if (['reveal', 'scoreboard', 'podium'].includes(G.phase)) {
     st.q = cur ? { type: cur.type, scored: SCORED.includes(cur.type) } : null;
     // Forklaring og fasit sendes bare med i fasit-visningen (ikke på poengtavle/pallen).
@@ -183,7 +273,13 @@ function statePayload() {
       Object.assign(st.q, correctAnswer(cur));
     }
     st.results = {};
-    for (const r of ranked()) st.results[r.id] = { ok: r.ok, pts: r.pts, score: r.score, rank: r.rank, streak: r.streak, answered: r.answered };
+    const teamRank = {};
+    rankedTeams().forEach(x => { teamRank[x.team] = x.rank; });
+    for (const r of ranked()) {
+      const res = st.results[r.id] = { ok: r.ok, pts: r.pts, score: r.score, rank: r.rank, streak: r.streak, answered: r.answered };
+      if (r.climb >= 2 && G.phase === 'reveal') res.climb = r.climb;
+      if (G.teams) res.tr = teamRank[G.teamOf[r.id]];
+    }
   }
   return st;
 }
@@ -193,6 +289,7 @@ function statePayload() {
 function next() {
   if (G.phase === 'lobby') return goTo(0);
   if (G.phase === 'question') return reveal();
+  if (G.phase === 'discuss') return revote();
   const last = G.qi >= total() - 1;
   const nextIsBoard = !last && quiz.questions[G.qi + 1]?.type === 'scoreboard';
   if (G.phase === 'reveal' && quiz.settings?.leaderboard !== false && !last && !nextIsBoard && SCORED.includes(q().type) && playerIds().length) {
@@ -210,6 +307,7 @@ function goTo(i) {
   G.qi = i;
   G.answers = {};
   G.hidden = [];
+  G.round = 1; G.first = null; G.firstN = 0; G.discussNow = false;
   const cur = q();
   if (cur.type === 'info') { G.phase = 'info'; return commit(); }
   // Egen poengtavle-side lagt inn av læreren: mobilene får vite plasseringen sin.
@@ -222,6 +320,7 @@ function goTo(i) {
 }
 
 function prepareQuestion(cur) {
+  G.climber = null;
   let n = 0;
   if (cur.type === 'quiz' || cur.type === 'poll') n = cur.options.length;
   if (cur.type === 'order') n = cur.items.length;
@@ -244,6 +343,39 @@ function startQuestion() {
   G.phase = 'question';
   commit(false); // ingen ny melding – mobilene vet allerede når spørsmålet starter
   startTicker();
+  if (TEST) botsAnswer();
+}
+
+// ---------- Testelever (prøvekjøring) ----------
+function botsAnswer() {
+  const cur = q(), qi = G.qi, round = G.round;
+  const limit = Math.max(2000, cur.time * 1000 * 0.7);
+  Object.keys(G.players).forEach(id => {
+    setTimeout(() => onAnswer({ id, qi, round, value: botValue(cur) }), 1200 + Math.random() * Math.min(limit, 9000));
+  });
+}
+function botValue(cur) {
+  const right = Math.random() < 0.6;
+  const pick = n => Math.floor(Math.random() * n);
+  switch (cur.type) {
+    case 'quiz': {
+      const n = G.labels.length;
+      const ok = [...Array(n).keys()].filter(d => judge(cur, d, G.map));
+      return right && ok.length ? ok[pick(ok.length)] : pick(n);
+    }
+    case 'poll': return pick(G.labels.length);
+    case 'truefalse': return right ? (cur.tf ? 0 : 1) : pick(2);
+    case 'short': return right ? cur.answers[0] : '?';
+    case 'wordcloud': return [['🐐', 'Kwest', 'GOAT', 'Peak', 'Fjell'][pick(5)]];
+    case 'slider': return right ? cur.correct : Math.round(cur.min + Math.random() * (cur.max - cur.min));
+    case 'order': return right ? cur.items.map((_, pos) => G.map.indexOf(pos)) : shuffle(G.map.map((_, d) => d));
+    default: return 0;
+  }
+}
+function botReact() {
+  if (!G.reactions || !REACT_PHASES.includes(G.phase) || Math.random() < 0.5) return;
+  const id = Object.keys(G.players).filter(x => x.startsWith('bot'))[Math.floor(Math.random() * BOTS.length)];
+  if (id) onReact({ id, g: Math.floor(Math.random() * 3), p: Math.floor(Math.random() * 2) });
 }
 
 function startTicker() {
@@ -258,13 +390,48 @@ function startTicker() {
   }, 200);
 }
 
+// Første runde av et diskusjonsspørsmål er ferdig: elevene diskuterer, og svarene holdes skjult.
+function toDiscuss() {
+  const cur = q();
+  const n = cur.type === 'truefalse' ? 2 : G.labels.length;
+  G.first = Array(n).fill(0);
+  Object.values(G.answers).forEach(a => { if (G.first[a.value] !== undefined) G.first[a.value]++; });
+  G.firstN = Object.keys(G.answers).length;
+  G.phase = 'discuss';
+  commit();
+}
+
+function revote() {
+  clearTimeout(introTimer);
+  G.round = 2;
+  G.answers = {};
+  G.discussNow = false;
+  G.phase = 'intro';
+  G.introEnd = Date.now() + INTRO_MS;
+  commit();
+  introTimer = setTimeout(startQuestion, INTRO_MS);
+}
+
+function discussNow() {
+  G.discussNow = true;
+  reveal();
+}
+
+function rankMap() {
+  const m = {};
+  ranked().forEach(r => { m[r.id] = r.rank; });
+  return m;
+}
+
 function reveal() {
   clearTimeout(allInTimer);
   allInTimer = null;
   if (G.phase !== 'question') return;
   clearInterval(tick);
   const cur = q();
+  if (G.round === 1 && canDiscuss(cur) && (cur.discuss || G.discussNow)) return toDiscuss();
   const scored = SCORED.includes(cur.type);
+  const before = scored ? rankMap() : null;
   for (const [id, pl] of Object.entries(G.players)) {
     const a = G.answers[id];
     pl.answered = !!a;
@@ -279,6 +446,15 @@ function reveal() {
     pl.score += pl.pts;
     pl.streak = pl.ok ? pl.streak + 1 : 0;
     pl.history[G.qi] = { a: a ? answerText(cur, a.value) : '', ok: pl.ok, pts: pl.pts };
+  }
+  // Comeback: hvem klatret mest på dette spørsmålet?
+  if (scored) {
+    const after = rankMap();
+    G.climber = null;
+    for (const [id, pl] of Object.entries(G.players)) {
+      pl.climb = (before[id] || after[id]) - after[id];
+      if (pl.climb >= 2 && (!G.climber || pl.climb > G.climber.n || (pl.climb === G.climber.n && pl.score > G.players[G.climber.id].score))) G.climber = { id, n: pl.climb };
+    }
   }
   G.phase = 'reveal';
   commit();
@@ -303,12 +479,12 @@ function downloadResults() {
     return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
   const qsAll = quiz.questions.map((x, i) => ({ q: playable(x), i })).filter(x => x.q.type !== 'info' && x.q.type !== 'scoreboard');
-  const head = [t('res.place'), t('res.name'), t('res.score'), t('res.correct'),
+  const head = [t('res.place'), t('res.name'), ...(G.teams ? [t('res.team')] : []), t('res.score'), t('res.correct'),
     ...qsAll.map(x => `${x.i + 1}. ${(x.q.text || t('type.' + x.q.type)).replace(/\s+/g, ' ').slice(0, 60)}`)];
   const rows = ranked().map(p => {
     const hist = p.history || {};
     const nOk = Object.values(hist).filter(h => h.ok).length;
-    return [p.rank, p.name, p.score, nOk, ...qsAll.map(x => {
+    return [p.rank, p.name, ...(G.teams ? [teamName(G.teamOf[p.id] ?? 0)] : []), p.score, nOk, ...qsAll.map(x => {
       const h = hist[x.i];
       if (!h) return '';
       if (h.ok === undefined) return h.a;
@@ -335,7 +511,7 @@ async function endGame() {
   if (G.phase !== 'podium' && !(await confirmBox(t('host.end'), t('host.endConfirm'), t('host.end'), t('common.cancel')))) return;
   ch?.send('end', {});
   sessionStorage.removeItem(STORE);
-  setTimeout(() => { location.href = 'studio.html'; }, 300);
+  setTimeout(() => { location.href = TEST ? 'studio.html#/rediger/' + quizId : 'studio.html'; }, 300);
 }
 
 function commit(send = true) {
@@ -351,9 +527,11 @@ function joinUrl() { return baseUrl() + '?pin=' + G.pin; }
 function topbar() {
   return h('header', { class: 'hbar' },
     wordmark(30),
-    G.phase !== 'lobby' ? h('span', { class: 'hbar-pin' }, joinHost() + ' · ' + t('host.pin') + ' ', h('b', null, G.pin)) : null,
+    TEST ? h('span', { class: 'test-tag' }, '🧪 ' + t('test.tag')) : G.phase !== 'lobby' ? h('span', { class: 'hbar-pin' }, joinHost() + ' · ' + t('host.pin') + ' ', h('b', null, G.pin)) : null,
     h('span', { class: 'spacer' }),
     h('span', { class: 'hbar-count' }, icon('user'), h('span', { class: 'hbar-n' }, playerIds().length)),
+    h('button', { class: 'btn ghost small react-toggle' + (G.reactions ? ' on' : ''), title: t('host.reactionsHelp'), 'aria-pressed': String(G.reactions), onclick: toggleReactions },
+      REACTIONS.g + ' ' + (G.reactions ? t('host.reactionsOn') : t('host.reactionsOff'))),
     langButton(render),
     h('button', { class: 'icon-btn', title: t('host.fullscreen'), 'aria-label': t('host.fullscreen'), onclick: toggleFullscreen }, icon('expand')),
     h('button', { class: 'btn ghost small', onclick: endGame }, t('host.end')));
@@ -371,7 +549,7 @@ function render() {
   app.append(topbar());
   const main = h('main', { class: 'hmain phase-' + G.phase });
   app.append(main);
-  ({ lobby: renderLobbyInto, intro: renderIntro, question: renderQuestion, info: renderInfo, reveal: renderReveal, scoreboard: renderScoreboard, podium: renderPodium })[G.phase](main);
+  ({ lobby: renderLobbyInto, intro: renderIntro, question: renderQuestion, info: renderInfo, reveal: renderReveal, discuss: renderDiscuss, scoreboard: renderScoreboard, podium: renderPodium })[G.phase](main);
 }
 
 function renderLobby() { if (G.phase === 'lobby') render(); }
@@ -387,28 +565,43 @@ function qrSvg(text) {
 
 function renderLobbyInto(main) {
   const ids = playerIds();
-  put(main, 
+  if (TEST) put(main, h('section', { class: 'lobby-top test' },
+    h('div', { class: 'lobby-join' },
+      h('h1', { class: 'lobby-title' }, quiz.title),
+      h('p', { class: 'lobby-at' }, '🧪 ', h('b', null, t('test.title'))),
+      h('p', { class: 'lobby-scan' }, t('test.text')))));
+  else put(main,
     h('section', { class: 'lobby-top' },
       h('div', { class: 'lobby-join' },
         h('h1', { class: 'lobby-title' }, quiz.title),
         h('p', { class: 'lobby-at' }, t('host.joinAt'), ' ', h('b', null, joinHost())),
         h('div', { class: 'lobby-pin' }, h('span', null, t('host.pin')), h('strong', null, G.pin.slice(0, 3) + ' ' + G.pin.slice(3))),
         h('p', { class: 'lobby-scan' }, t('host.orScan'))),
-      h('div', { class: 'lobby-qr' }, qrSvg(joinUrl()))),
+      h('div', { class: 'lobby-qr' }, qrSvg(joinUrl()))));
+  put(main,
     h('section', { class: 'lobby-players' },
       h('div', { class: 'lobby-bar' },
         h('span', { class: 'lobby-count' }, t('host.players', { n: ids.length })),
         ids.length ? h('span', { class: 'muted' }, t('host.kickHint')) : null,
         h('span', { class: 'spacer' }),
+        h('label', { class: 'team-pick' }, icon('team'), h('select', { 'aria-label': t('host.teams'), onchange: e => setTeams(Number(e.target.value)) },
+          [0, 2, 3, 4, 5, 6, 7, 8].map(n => h('option', { value: n, selected: n === G.teams }, n ? t('host.nTeams', { n }) : t('host.noTeams'))))),
         h('button', { class: 'btn ghost', onclick: () => { G.locked = !G.locked; persist(); render(); } }, G.locked ? [icon('lock'), t('host.unlock')] : [icon('unlock'), t('host.lock')]),
         h('button', { class: 'btn primary big', onclick: next }, t('host.start'))),
-      ids.length
-        ? h('div', { class: 'chips' + (ids.length > 30 ? ' many' : '') }, ids.map(id => {
-          const isNew = !shownChips.has(id);
-          shownChips.add(id);
-          return h('button', { class: 'chip' + (isNew ? ' new' : ''), onclick: () => kick(id) }, G.players[id].name);
+      !ids.length ? h('p', { class: 'waiting' }, h('span', { class: 'spinner small' }), t('host.waiting'))
+        : G.teams ? h('div', { class: 'team-cols' }, [...Array(G.teams).keys()].map(ti => {
+          const members = ids.filter(id => G.teamOf[id] === ti);
+          return h('div', { class: 'team-col', style: { '--tc': TEAM_COLORS[ti] } },
+            h('h3', { class: 'team-head' }, teamName(ti), h('span', null, members.length)),
+            h('div', { class: 'chips many' }, members.map(chip)));
         }))
-        : h('p', { class: 'waiting' }, h('span', { class: 'spinner small' }), t('host.waiting'))));
+        : h('div', { class: 'chips' + (ids.length > 30 ? ' many' : '') }, ids.map(chip))));
+}
+
+function chip(id) {
+  const isNew = !shownChips.has(id);
+  shownChips.add(id);
+  return h('button', { class: 'chip' + (isNew ? ' new' : ''), onclick: () => kick(id) }, G.players[id].name);
 }
 
 function audioPlayer(cur, autoplay) {
@@ -418,17 +611,18 @@ function audioPlayer(cur, autoplay) {
   return h('div', { class: 'audio-box' }, h('span', { class: 'audio-icon' }, icon('sound', 26)), el);
 }
 
-function questionHead(cur) {
+function questionHead(cur, i = G.qi) {
   return h('div', { class: 'qhead' },
     h('span', { class: 'qhead-mark' }, questionSvg(54)),
     h('div', null,
-      h('div', { class: 'qhead-n' }, t('host.question', { n: G.qi + 1, total: total() })),
+      h('div', { class: 'qhead-n' }, t('host.question', { n: i + 1, total: total() })),
       h('h1', { class: 'qhead-text' + (cur.text.length > 120 ? ' long' : '') }, cur.text)));
 }
 
 function renderIntro(main) {
   const cur = q();
-  put(main, h('div', { class: 'intro' },
+  put(main, h('div', { class: 'intro' + (isFinale() ? ' finale' : '') },
+    G.round === 2 ? h('div', { class: 'intro-badge' }, '💬 ' + t('host.revote')) : isFinale() ? h('div', { class: 'intro-badge finale' }, t('host.finale')) : null,
     h('div', { class: 'intro-mark' }, questionSvg(120)),
     h('div', { class: 'qhead-n' }, t('host.question', { n: G.qi + 1, total: total() }) + ' · ' + t('type.' + cur.type)),
     h('h1', { class: 'intro-text' }, cur.text),
@@ -472,7 +666,9 @@ function renderQuestion(main) {
       h('div', { class: 'timer-ring', style: { '--p': left / (cur.time * 1000) } }, h('span', { class: 'timer-num' }, Math.ceil(left / 1000))),
       cur.image ? h('img', { class: 'qimg', src: cur.image, alt: '' }) : h('div', { class: 'qimg-empty' }, middle),
       h('div', { class: 'acount' }, h('strong', { class: 'acount-n' }, Object.keys(G.answers).length), h('span', null, t('host.answers')),
-        h('button', { class: 'btn ghost small', onclick: reveal }, t('host.skip')))),
+        h('button', { class: 'btn ghost small', onclick: reveal }, t('host.skip')),
+        canDiscuss(cur) && G.round === 1 && !cur.discuss ? h('button', { class: 'btn ghost small', title: t('host.discussHelp'), onclick: discussNow }, '💬 ' + t('host.discussBtn')) : null,
+        G.round === 2 ? h('span', { class: 'round-tag' }, t('host.round2')) : null)),
     audioPlayer(cur, true),
     tiles(cur));
 }
@@ -496,6 +692,12 @@ function renderReveal(main) {
     const counts = Array(n).fill(0);
     answers.forEach(a => { if (counts[a.value] !== undefined) counts[a.value]++; });
     const correct = cur.type === 'poll' ? null : [...Array(n).keys()].map(i => judge(cur, i, G.map));
+    if (G.round === 2 && G.first && correct && G.firstN) {
+      const pct = (c, tot) => Math.round(100 * c / Math.max(1, tot));
+      const before = pct(G.first.reduce((s, c, i) => s + (correct[i] ? c : 0), 0), G.firstN);
+      const after = pct(counts.reduce((s, c, i) => s + (correct[i] ? c : 0), 0), answers.length);
+      put(main, h('p', { class: 'before-after' }, '💬 ' + t('host.beforeAfter', { a: before, b: after })));
+    }
     body = h('div', { class: 'reveal-wrap' },
       h('div', { class: 'reveal-top' + (cur.image ? ' with-img' : '') },
         cur.image ? h('img', { class: 'qimg small', src: cur.image, alt: '' }) : null,
@@ -547,14 +749,30 @@ function explanationBox(cur) {
 }
 
 function bars(cur, counts, correct) {
-  const max = Math.max(1, ...counts);
-  return h('div', { class: 'bars' }, counts.map((c, i) => {
+  // Etter «stem igjen»: første runde vises som en lys søyle ved siden av.
+  const first = G.round === 2 && G.first ? G.first : null;
+  const max = Math.max(1, ...counts, ...(first || []));
+  return h('div', { class: 'bars' + (first ? ' with-first' : '') }, counts.map((c, i) => {
     const ci = colorIndex(cur.type, i);
     return h('div', { class: 'bar-col' + (correct && !correct[i] ? ' dim' : '') },
-      h('div', { class: 'bar-n' }, correct?.[i] ? '✓ ' : '', c),
-      h('div', { class: 'bar-area' }, h('div', { class: 'bar', style: { height: Math.max(3, c / max * 100) + '%', background: COLORS[ci] } })),
+      h('div', { class: 'bar-n' }, correct?.[i] ? '✓ ' : '', first ? h('span', { class: 'bar-first-n' }, first[i] + ' → ') : null, c),
+      h('div', { class: 'bar-area' },
+        first ? h('div', { class: 'bar first', title: t('host.round1'), style: { height: Math.max(3, first[i] / max * 100) + '%', background: COLORS[ci] } }) : null,
+        h('div', { class: 'bar', style: { height: Math.max(3, c / max * 100) + '%', background: COLORS[ci] } })),
       h('div', { class: 'bar-shape', style: { background: COLORS[ci] } }, svg(SHAPES[ci])));
   }));
+}
+
+function renderDiscuss(main) {
+  const cur = q();
+  put(main,
+    questionHead(cur),
+    h('div', { class: 'discuss' },
+      h('div', { class: 'discuss-icon' }, '💬'),
+      h('h1', null, t('host.discussTitle')),
+      h('p', null, t('host.discussText', { n: G.firstN, total: playerIds().length }))),
+    tiles(cur),
+    h('div', { class: 'hfoot' }, h('span', { class: 'muted' }, t('host.discussHidden')), h('button', { class: 'btn primary big', onclick: next }, '💬 ' + t('host.revoteBtn'))));
 }
 
 function wordCloud(answers) {
@@ -630,12 +848,19 @@ function trailScene() {
   </svg>`);
 }
 
+function climberBanner() {
+  const c = G.climber && G.players[G.climber.id];
+  if (!c) return h('span', null);
+  return h('div', { class: 'climber' }, '🚀 ', t('host.climber', { name: c.name, n: G.climber.n }));
+}
+
 function renderScoreboard(main) {
-  const all = ranked();
+  // Med lag går lagene (snittpoeng) opp stien i stedet for enkeltelevene.
+  const all = G.teams ? rankedTeams() : ranked();
   // Mulige poeng så langt = toppen av fjellet.
-  const possible = quiz.questions.slice(0, G.qi + 1).map(playable).filter(x => SCORED.includes(x.type)).reduce((sum, x) => sum + basePoints(x), 0) || 1;
-  const scene = h('div', { class: 'trail-scene' }, trailScene(), h('h1', { class: 'scene-title day' }, t('host.scoreboard')));
-  put(main, scene, h('div', { class: 'hfoot' }, h('span', null), h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
+  const possible = quiz.questions.slice(0, G.qi + 1).map((x, i) => qAt(i)).filter(x => SCORED.includes(x.type)).reduce((sum, x) => sum + basePoints(x), 0) || 1;
+  const scene = h('div', { class: 'trail-scene' }, trailScene(), h('h1', { class: 'scene-title day' }, G.teams ? t('host.teamBoard') : t('host.scoreboard')));
+  put(main, scene, h('div', { class: 'hfoot' }, climberBanner(), h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
 
   const path = scene.querySelector('.trail-path');
   const L = path.getTotalLength();
@@ -653,7 +878,7 @@ function renderScoreboard(main) {
   for (let i = 1; i < ends.length; i++) ends[i] = Math.min(ends[i], ends[i - 1] - 0.03);
   const crowded = top.some((p, i) => i && frac(top[i - 1].score) - frac(p.score) < 0.1);
   const label = p => h('span', { class: 'trail-label' },
-    h('b', null, p.name),
+    h('b', { style: p.color ? { color: p.color } : null }, p.name),
     h('span', null, p.score + ' p', p.pts ? h('em', null, ' +' + p.pts) : null, p.streak > 1 ? ' 🔥' + p.streak : null));
   const markers = top.map((p, i) => {
     const endX = parseFloat(at(ends[i]).left);
@@ -744,7 +969,10 @@ function podiumScene() {
 }
 
 function renderPodium(main) {
-  const all = ranked();
+  if (reviewAt >= 0) return renderReview(main);
+  const all = G.teams ? rankedTeams() : ranked();
+  const people = ranked();
+  const hard = hardest();
   const byPlace = { 1: all[0], 2: all[1], 3: all[2] };
   const labels = PEAKS.map(pk => {
     const p = byPlace[pk.place];
@@ -757,18 +985,63 @@ function renderPodium(main) {
   put(main,
     h('div', { class: 'podium-scene' },
       podiumScene(),
-      h('h1', { class: 'scene-title' }, all.length ? t('host.podium') : t('host.nobody')),
+      h('h1', { class: 'scene-title' }, all.length ? (G.teams ? t('host.teamPodium') : t('host.podium')) : t('host.nobody')),
       labels),
-    all.length > 3 ? h('details', { class: 'all-results' }, h('summary', null, t('host.allResults')),
-      h('ol', null, all.slice(3).map(p => h('li', { value: p.rank }, h('span', null, p.name), h('b', null, p.score))))) : null,
+    (G.teams ? people.length : people.length > 3) ? h('details', { class: 'all-results' }, h('summary', null, t('host.allResults')),
+      h('ol', null, (G.teams ? people : people.slice(3)).map(p => h('li', { value: p.rank }, h('span', null, p.name), h('b', null, p.score))))) : null,
     h('div', { class: 'hfoot' },
-      all.length ? h('button', { class: 'btn ghost', onclick: downloadResults }, [icon('download'), t('res.download')]) : h('span', null),
+      h('div', { class: 'row' },
+        people.length ? h('button', { class: 'btn ghost', onclick: downloadResults }, [icon('download'), t('res.download')]) : null,
+        hard.length ? h('button', { class: 'btn ghost', onclick: () => { reviewAt = 0; render(); } }, '🔍 ' + t('review.button', { n: hard.length })) : null),
       h('button', { class: 'btn primary big', onclick: endGame }, t('host.end'))));
+}
+
+// ---------- Gjennomgang: spørsmålene flest svarte feil på ----------
+function hardest() {
+  const ids = playerIds();
+  if (!ids.length) return [];
+  const list = [];
+  quiz.questions.forEach((x, i) => {
+    if (!SCORED.includes(x.type)) return;
+    const hist = ids.map(id => G.players[id].history?.[i]).filter(Boolean);
+    if (!hist.length) return; // spørsmålet ble ikke spilt
+    const ok = hist.filter(hh => hh.ok).length;
+    if (ok === ids.length) return;
+    const wrong = {};
+    hist.filter(hh => !hh.ok && hh.a).forEach(hh => { const k = normText(hh.a); (wrong[k] ||= { text: hh.a, n: 0 }).n++; });
+    list.push({ i, pct: Math.round(100 * ok / ids.length), ok, total: ids.length, wrong: Object.values(wrong).sort((a, b) => b.n - a.n).slice(0, 4) });
+  });
+  return list.sort((a, b) => a.pct - b.pct || a.i - b.i).slice(0, 3);
+}
+
+function renderReview(main) {
+  const list = hardest();
+  const item = list[reviewAt];
+  if (!item) { reviewAt = -1; return renderPodium(main); }
+  const cur = qAt(item.i);
+  const ans = correctAnswer(cur);
+  const correctText = ans.tf !== undefined ? (ans.tf ? t('ed.true') : t('ed.false')) : ans.correct;
+  const last = reviewAt >= list.length - 1;
+  put(main,
+    h('div', { class: 'review-head' }, h('span', { class: 'review-n' }, '🔍 ' + t('review.title', { n: reviewAt + 1, total: list.length })),
+      h('span', { class: 'review-pct' }, t('review.pct', { n: item.pct }))),
+    questionHead(cur, item.i),
+    h('div', { class: 'review-body' },
+      cur.image ? h('img', { class: 'qimg small', src: cur.image, alt: '' }) : null,
+      h('div', { class: 'stack grow' },
+        h('div', { class: 'correct-box' }, h('span', null, t('host.correctAnswer')), h('strong', null, correctText)),
+        item.wrong.length ? h('div', { class: 'review-wrong' }, h('b', null, t('review.wrong')),
+          h('ul', { class: 'answer-list' }, item.wrong.map(w => h('li', null, h('span', null, w.text), h('b', null, w.n))))) : null),
+      explanationBox(cur)),
+    audioPlayer(cur, false),
+    h('div', { class: 'hfoot' },
+      h('button', { class: 'btn ghost', onclick: () => { reviewAt = reviewAt > 0 ? reviewAt - 1 : -1; render(); } }, reviewAt > 0 ? '← ' + t('review.prev') : '← ' + t('review.back')),
+      h('button', { class: 'btn primary big', onclick: () => { reviewAt = last ? -1 : reviewAt + 1; render(); } }, last ? t('review.back') : t('review.next') + ' →')));
 }
 
 document.addEventListener('keydown', e => {
   if (e.target.matches('input, textarea, button')) return;
-  if ((e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') && ['lobby', 'reveal', 'scoreboard', 'info'].includes(G.phase)) { e.preventDefault(); next(); }
+  if ((e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') && ['lobby', 'reveal', 'scoreboard', 'info', 'discuss'].includes(G.phase)) { e.preventDefault(); next(); }
 });
 
 init();

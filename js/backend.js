@@ -40,13 +40,25 @@ function supabaseBackend() {
 
     // «Privat» krever en ny kolonne i databasen. Finnes den ikke ennå, virker alt annet som før.
     hasPrivate: true,
+    hasLabels: true,
     async listQuizzes() {
-      let res = await client.from('quizzes').select(this.hasPrivate ? LIST_COLS + ',is_private' : LIST_COLS).order('updated_at', { ascending: false });
+      const cols = () => (this.hasLabels ? LIST_COLS + ',labels:data->labels' : LIST_COLS) + (this.hasPrivate ? ',is_private' : '');
+      let res = await client.from('quizzes').select(cols()).order('updated_at', { ascending: false });
       if (res.error && /is_private/.test(res.error.message || '')) {
         this.hasPrivate = false;
-        res = await client.from('quizzes').select(LIST_COLS).order('updated_at', { ascending: false });
+        res = await client.from('quizzes').select(cols()).order('updated_at', { ascending: false });
+      }
+      // Skulle etikettene ikke kunne hentes, virker listen likevel (bare uten etiketter).
+      if (res.error && this.hasLabels) {
+        this.hasLabels = false;
+        res = await client.from('quizzes').select(cols()).order('updated_at', { ascending: false });
       }
       const rows = ok(res);
+      return rows.map(r => ({ ...r, labels: Array.isArray(r.labels) ? r.labels : [], owner_name: r.profiles?.name || r.profiles?.email || '' }));
+    },
+    // Alle kwest med spørsmål (til spørsmålsbanken).
+    async listBank() {
+      const rows = ok(await client.from('quizzes').select('id,title,owner,data,updated_at,profiles(name,email)').order('updated_at', { ascending: false }));
       return rows.map(r => ({ ...r, owner_name: r.profiles?.name || r.profiles?.email || '' }));
     },
     async getQuiz(id) {
@@ -75,6 +87,19 @@ function supabaseBackend() {
     async updateFeedback(id, patch) { ok(await client.from('feedback').update(patch).eq('id', id)); },
     async deleteFeedback(id) { ok(await client.from('feedback').delete().eq('id', id)); },
     async updateProfile(id, patch) { ok(await client.from('profiles').update(patch).eq('id', id)); },
+
+    // Hjemmelekse
+    async createAssignment(a) {
+      return ok(await client.from('assignments').insert({ code: uid(8), quiz_id: a.quiz_id, title: a.title, data: a.data }).select('*').single());
+    },
+    async listAssignments(quizId) {
+      return ok(await client.from('assignments').select('id,code,title,data,is_open,created_at,assignment_results(score,answers)').eq('quiz_id', quizId).order('created_at', { ascending: false }))
+        .map(({ assignment_results, ...a }) => ({ ...a, results: assignment_results || [] }));
+    },
+    async updateAssignment(id, patch) { ok(await client.from('assignments').update(patch).eq('id', id)); },
+    async deleteAssignment(id) { ok(await client.from('assignments').delete().eq('id', id)); },
+    async getAssignment(code) { return ok(await client.rpc('get_assignment', { p_code: code })); },
+    async submitAssignment(code, score, answers) { return ok(await client.rpc('submit_assignment', { p_code: code, p_score: score, p_answers: answers })); },
 
     channel(pin) {
       const ch = client.channel('kwest-' + pin, { config: { broadcast: { self: false, ack: false } } });
@@ -153,6 +178,14 @@ function demoBackend() {
       const meId = current();
       return quizzes().filter(q => !q.is_private || q.owner === meId).map(({ data, ...q }) => {
         const o = us.find(u => u.id === q.owner);
+        return { ...q, labels: Array.isArray(data?.labels) ? data.labels : [], owner_name: o?.name || o?.email || '' };
+      }).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    },
+    async listBank() {
+      const us = users();
+      const meId = current();
+      return quizzes().filter(q => !q.is_private || q.owner === meId).map(q => {
+        const o = us.find(u => u.id === q.owner);
         return { ...q, owner_name: o?.name || o?.email || '' };
       }).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
     },
@@ -191,6 +224,32 @@ function demoBackend() {
       const list = users();
       Object.assign(list.find(u => u.id === id), patch);
       write('kwest-demo-users', list);
+    },
+
+    async createAssignment(a) {
+      const row = { id: uid(), code: uid(8), owner: current(), quiz_id: a.quiz_id, title: a.title, data: a.data, is_open: true, created_at: new Date().toISOString() };
+      write('kwest-demo-assignments', [row, ...read('kwest-demo-assignments', [])]);
+      return row;
+    },
+    async listAssignments(quizId) {
+      const results = read('kwest-demo-results', []);
+      return read('kwest-demo-assignments', []).filter(a => a.quiz_id === quizId && a.owner === current())
+        .map(a => ({ ...a, results: results.filter(r => r.assignment_id === a.id) }));
+    },
+    async updateAssignment(id, patch) { write('kwest-demo-assignments', read('kwest-demo-assignments', []).map(a => (a.id === id ? { ...a, ...patch } : a))); },
+    async deleteAssignment(id) {
+      write('kwest-demo-assignments', read('kwest-demo-assignments', []).filter(a => a.id !== id));
+      write('kwest-demo-results', read('kwest-demo-results', []).filter(r => r.assignment_id !== id));
+    },
+    async getAssignment(code) {
+      const a = read('kwest-demo-assignments', []).find(x => x.code === code);
+      return a ? { title: a.title, data: a.data, open: a.is_open } : null;
+    },
+    async submitAssignment(code, score, answers) {
+      const a = read('kwest-demo-assignments', []).find(x => x.code === code && x.is_open);
+      if (!a) return false;
+      write('kwest-demo-results', [...read('kwest-demo-results', []), { id: uid(), assignment_id: a.id, created_at: new Date().toISOString(), score, answers }]);
+      return true;
     },
 
     channel(pin) {

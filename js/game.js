@@ -15,6 +15,22 @@ export const TYPES = ['quiz', 'truefalse', 'short', 'poll', 'wordcloud', 'slider
 export const TYPE_ICONS = { quiz: '▦', truefalse: '◐', short: '✎', poll: '▥', wordcloud: '☁', slider: '⇔', order: '⇅', info: 'ℹ', scoreboard: '⛰' };
 export const TIMES = [5, 10, 20, 30, 45, 60, 90, 120, 240];
 export const SCORED = ['quiz', 'truefalse', 'short', 'slider', 'order'];
+// Spørsmål som kan ha «diskuter med sidemannen og stem igjen».
+export const DISCUSS_TYPES = ['quiz', 'truefalse', 'poll'];
+// Lag: farger og antall (navnene står i i18n.js som team.0 … team.7).
+export const TEAM_COLORS = ['#D62839', '#1F5FD1', '#1E8B3A', '#7A3BD9', '#E07B10', '#0E8C8C', '#C2185B', '#5D4037'];
+// Reaksjoner elevene kan sende til storskjermen (bare disse – ingen fritekst).
+export const REACTIONS = { g: '🐐', p: '⛰️' };
+
+// Finalen: det siste spørsmålet som gir poeng teller dobbelt når læreren har slått det på.
+export function finaleIndex(quiz) {
+  if (!quiz?.settings?.finale) return -1;
+  for (let i = quiz.questions.length - 1; i >= 0; i--) {
+    const q = quiz.questions[i];
+    if (SCORED.includes(q.type) && q.points !== 'none') return i;
+  }
+  return -1;
+}
 
 export function newQuestion(type = 'quiz') {
   const q = { id: uid(8), type, text: '', image: '', audio: '', autoplay: true, explanation: '', time: 20, points: 'standard' };
@@ -33,7 +49,7 @@ export function newQuestion(type = 'quiz') {
 }
 
 export function emptyQuiz() {
-  return { title: '', description: '', settings: { leaderboard: true, shuffle: false }, questions: [newQuestion('quiz')] };
+  return { title: '', description: '', settings: { leaderboard: true, shuffle: false, finale: false }, questions: [newQuestion('quiz')] };
 }
 
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v !== null ? Number(v) : d);
@@ -53,7 +69,7 @@ export function normalizeQuiz(raw) {
   const quiz = {
     title: str(raw.title) || 'Kwest',
     description: str(raw.description),
-    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle },
+    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle, finale: !!raw.settings?.finale },
     questions: list.map(normalizeQuestion).filter(Boolean),
   };
   if (!quiz.questions.length) throw new Error('no-questions');
@@ -154,6 +170,7 @@ export function normalizeQuestion(r) {
     q.items = it.slice(0, 4).map(o => (typeof o === 'object' && o ? str(o.text) : str(o)));
     while (q.items.length < 2) q.items.push('');
   }
+  if (r.discuss && DISCUSS_TYPES.includes(type)) q.discuss = true;
   if (type === 'info' || type === 'scoreboard') { q.time = 0; q.points = 'none'; }
   if (type === 'poll' || type === 'wordcloud') q.points = 'none';
   return q;

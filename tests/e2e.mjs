@@ -15,6 +15,8 @@ const URL0 = `http://localhost:${PORT}/`;
 // Testen legger inn en egen poengtavle-side etter kortsvar-spørsmålet.
 const quizObj = JSON.parse(readFileSync(ROOT + 'eksempler/eksempel-kwest.json', 'utf8'));
 quizObj.questions.splice(5, 0, { type: 'scoreboard' });
+quizObj.questions[2].discuss = true; // flervalg: diskuter og stem igjen
+quizObj.settings = { ...(quizObj.settings || {}), finale: true }; // siste poenggivende spørsmål teller dobbelt
 const quizJson = JSON.stringify(quizObj);
 const errors = [];
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png` }); };
@@ -126,8 +128,18 @@ try {
   await p2.getByText('Du er med i kwestet!').waitFor();
   await host.locator('.chip').nth(1).waitFor();
   await shot(host, '07-lobby');
-  await shot(p1, '08-mobil-lobby');
   step('To elever med (duplikatnavn ble avvist)');
+  // Lag og reaksjoner
+  await host.locator('.team-pick select').selectOption('2');
+  await host.locator('.team-col').nth(1).waitFor();
+  await p1.locator('.team-badge').waitFor();
+  await p1.locator('.react-btn').first().click();
+  await p1.locator('.react-btn').nth(1).click();
+  await host.locator('.react-float').first().waitFor({ timeout: 8000 });
+  await shot(host, '07b-lobby-lag');
+  await shot(p1, '08-mobil-lobby');
+  const olaTeam = (await p1.locator('.team-badge').textContent()).replace(/^Lag: /, '');
+  step('Lag fordelt (' + olaTeam + '), og reaksjonene flyr over storskjermen');
 
   await host.getByRole('button', { name: 'Start' }).click();
   // 1: infoside
@@ -158,7 +170,21 @@ try {
   if (!(await host.locator('.audio-box audio').count())) throw new Error('Mangler lyd på storskjermen');
   await p1.locator('.pbtn', { hasText: '4' }).click();
   await p2.locator('.pbtn', { hasText: '2' }).click();
+  // Diskusjonsspørsmål: ingen fasit ennå, elevene diskuterer og stemmer igjen
+  await host.locator('.discuss').waitFor();
+  await p2.getByText('Diskuter med sidemannen!').waitFor();
+  await p2.locator('.my-answer', { hasText: '2' }).waitFor();
+  await shot(host, '12b-diskuter');
+  await shot(p2, '12c-mobil-diskuter');
+  await host.getByRole('button', { name: /Stem igjen/ }).click();
+  await p1.getByText('Stem igjen!').waitFor();
+  await host.locator('.timer-ring').waitFor({ timeout: 8000 });
+  await p1.locator('.pbtn', { hasText: '4' }).click();
+  await p2.locator('.pbtn', { hasText: '2' }).click();
   await host.locator('.tiles.revealed').waitFor();
+  await host.locator('.before-after').waitFor();
+  if (!(await host.locator('.bar.first').count())) throw new Error('Mangler søyler fra første runde');
+  step('Diskusjonsspørsmål: to runder med «før → etter» på storskjermen');
   await p1.getByText('Riktig!').waitFor();
   await p2.getByText('Feil').waitFor();
   await host.waitForTimeout(900); await shot(host, '13-resultat');
@@ -212,7 +238,9 @@ try {
   await host.getByRole('button', { name: 'Neste' }).click();
   await host.getByRole('button', { name: 'Neste' }).click();
 
-  // 7: rekkefølge
+  // 7: rekkefølge (finalen – siste spørsmål med poeng)
+  await host.locator('.intro-badge.finale').waitFor();
+  await p1.getByText('Finale!').waitFor();
   await waitQ();
   // Ola drar feltene i riktig rekkefølge; Kari sender slik de står (alltid stokket = feil)
   const dragTo = async (page, word, slot) => {
@@ -248,13 +276,21 @@ try {
   await host.waitForTimeout(3800);
   await shot(host, '22-pallen');
   const firstName = await host.locator('.summit.s1 .summit-name').textContent();
-  if (firstName !== 'Ola') throw new Error('Ola skulle vunnet, vinner: ' + firstName);
+  if (firstName !== olaTeam) throw new Error('Laget til Ola skulle vunnet, vinner: ' + firstName);
   await p1.getByText('Du kom på 1. plass').waitFor();
+  await p1.getByText('Laget ditt kom på 1. plass').waitFor();
   await p2.getByText('Du kom på 2. plass').waitFor();
+  // Gjennomgang av de vanskeligste spørsmålene
+  await host.getByRole('button', { name: /Gå gjennom de vanskeligste/ }).click();
+  await host.locator('.review-pct').waitFor();
+  await shot(host, '22b-gjennomgang');
+  while (await host.locator('.review-pct').count()) await host.locator('.hfoot .btn.primary').click();
+  await host.locator('.podium-scene').waitFor();
+  step('Lagpall og gjennomgang av de vanskeligste spørsmålene');
   await shot(p1, '23-mobil-ferdig');
   const [dl] = await Promise.all([host.waitForEvent('download'), host.getByRole('button', { name: /Last ned resultater/ }).click()]);
   const csv = readFileSync(await dl.path(), 'utf8');
-  if (!csv.includes('Ola') || !csv.includes('Plass;Navn;Poeng') || !csv.includes('Hudenn (✓')) throw new Error('Feil i resultatfil:\n' + csv);
+  if (!csv.includes('Ola') || !csv.includes('Plass;Navn;Lag;Poeng') || !csv.includes('Hudenn (✓')) throw new Error('Feil i resultatfil:\n' + csv);
   step('Resultatfil lastet ned: ' + csv.split('\n')[1].slice(0, 80));
   step('Spillet gikk gjennom alle 8 typer, Ola vant');
 
@@ -275,6 +311,88 @@ try {
   await host.locator('.fb-item').first().getByRole('button', { name: /behandlet/ }).click();
   await host.locator('.fb-count').filter({ hasText: '1' }).waitFor();
   step('Tilbakemeldinger fungerer');
+
+  // Etiketter, spørsmålsbank og angre
+  await host.getByRole('link', { name: 'Mine kwest' }).click();
+  const card1 = host.locator('.card').filter({ hasText: 'Min første' });
+  await card1.locator('.menu-wrap .icon-btn').click();
+  await card1.getByRole('menuitem', { name: 'Etiketter' }).click();
+  await host.locator('.modal .label-editor input').fill('Farmakologi');
+  await host.locator('.modal .label-editor input').press('Enter');
+  await host.locator('.modal').getByRole('button', { name: 'Lagre' }).click();
+  await host.locator('.label-filter .label-chip', { hasText: 'Farmakologi' }).click();
+  await host.locator('.card').first().waitFor();
+  if ((await host.locator('.card').count()) !== 1) throw new Error('Etikettfilteret viser feil antall kwest');
+  await shot(host, '25-etiketter');
+  await host.locator('.label-filter .label-chip', { hasText: 'Alle' }).click();
+  step('Etiketter og filter fungerer');
+  await host.locator('.card').filter({ hasText: 'Min første' }).getByRole('link', { name: 'Rediger' }).click();
+  await host.locator('.qitem').nth(2).waitFor();
+  await host.getByRole('button', { name: /Hent fra andre kwest/ }).click();
+  await host.locator('.modal .bank-list').waitFor();
+  await host.locator('.modal input[type=search]').fill('kamre');
+  await host.locator('.modal .bank-item').first().click();
+  await shot(host, '26-sporsmalsbank');
+  await host.locator('.modal').getByRole('button', { name: 'Legg til (1)' }).click();
+  if ((await host.locator('.qitem').count()) !== 4) throw new Error('Spørsmålsbanken la ikke til spørsmålet');
+  await host.locator('.undo-btn').click();
+  if ((await host.locator('.qitem').count()) !== 3) throw new Error('Angre virket ikke');
+  await host.locator('.redo-btn').click();
+  if ((await host.locator('.qitem').count()) !== 4) throw new Error('Gjør om virket ikke');
+  await host.locator('.qitem').nth(0).click();
+  await host.getByPlaceholder('Skriv spørsmålet her').fill('Hva er 3 + 3?');
+  await host.evaluate(() => document.activeElement.blur());
+  await host.keyboard.press('Control+z');
+  if ((await host.getByPlaceholder('Skriv spørsmålet her').inputValue()) !== 'Hva er 2 + 2?') throw new Error('Ctrl+Z angret ikke skrivingen');
+  step('Spørsmålsbank, angre og gjør om fungerer');
+
+  // Prøvekjøring med testelever (ordsky-spørsmålet må ha tekst først)
+  await host.locator('.qitem').filter({ hasText: 'Ordsky' }).click();
+  await host.getByPlaceholder('Skriv spørsmålet her').fill('Ett ord om hjertet');
+  await host.getByRole('button', { name: /Prøvekjør/ }).click();
+  await host.waitForURL(/test=1/);
+  await host.locator('.chip').nth(4).waitFor();
+  if (await host.locator('.lobby-qr').count()) throw new Error('Prøvekjøring skal ikke vise QR-kode');
+  await shot(host, '27-provekjoring');
+  await host.getByRole('button', { name: 'Start' }).click();
+  for (let guard = 0; guard < 200 && !(await host.locator('.podium-scene').count()); guard++) {
+    const btn = host.locator('.hfoot .btn.primary');
+    if (await btn.count()) await btn.click(); else await host.waitForTimeout(300);
+  }
+  await host.locator('.podium-scene').waitFor();
+  if (!(await host.locator('.summit-name', { hasText: 'Bot' }).count())) throw new Error('Testelevene kom ikke på pallen');
+  step('Prøvekjøring med fem testelever gikk til pallen');
+  await host.getByRole('button', { name: 'Avslutt' }).last().click();
+  await host.waitForURL(/studio/);
+
+  // Hjemmelekse: læreren lager en lenke, en elev tar leksen alene, læreren ser anonyme resultater
+  await host.getByRole('button', { name: /Hjemmelekse/ }).click();
+  await host.locator('.modal').getByRole('button', { name: /Lag ny lenke/ }).click();
+  const hwLink = await host.locator('.hw-item .invite-link').first().textContent();
+  await host.locator('.modal').getByRole('button', { name: 'Vis QR-kode' }).click();
+  await host.locator('.hw-qr svg').waitFor();
+  await host.keyboard.press('Escape');
+  await p1.goto(hwLink);
+  await p1.getByRole('button', { name: 'Start' }).click();
+  for (let guard = 0; guard < 30 && !(await p1.getByText('Kwest fullført!').count()); guard++) {
+    if (await p1.locator('.pbtn', { hasText: /^4$/ }).count()) await p1.locator('.pbtn', { hasText: /^4$/ }).click();
+    else if (await p1.locator('.pbtn').count()) await p1.locator('.pbtn').first().click();
+    else if (await p1.locator('.ptext input').count()) { await p1.locator('.ptext input').first().fill('Hjerte'); await p1.getByRole('button', { name: 'Send' }).click(); }
+    else if (await p1.getByRole('button', { name: /Neste|Se resultatet/ }).count()) { await shot(p1, '28-mobil-lekse-' + guard); await p1.getByRole('button', { name: /Neste|Se resultatet/ }).click(); }
+    else await p1.waitForTimeout(200);
+  }
+  await p1.getByText('2 av 2 riktige').waitFor();
+  await p1.getByText('sendt anonymt').waitFor();
+  await shot(p1, '29-mobil-lekse-ferdig');
+  await host.getByRole('button', { name: /Hjemmelekse/ }).click();
+  await host.locator('.hw-item').getByText('1 har fullført').waitFor();
+  await host.locator('.hw-results summary').click();
+  await shot(host, '30-lekse-resultater');
+  await host.locator('.modal').getByRole('button', { name: 'Steng', exact: true }).click();
+  await host.locator('.hw-item.closed').waitFor();
+  await p1.goto(hwLink);
+  await p1.getByText('Leksen er stengt').waitFor();
+  step('Hjemmelekse: elev tok leksen anonymt, læreren ser resultatet og kan stenge lenken');
 
   // Engelsk
   await p2.goto(URL0);
