@@ -1,6 +1,6 @@
 // Hjemmelekse: eleven tar et kwest alene på mobilen, i sitt eget tempo, uten navn.
 // Til slutt sendes bare anonyme svar (riktig/galt og svaret) til læreren.
-import { h, svg, shuffle } from './util.js';
+import { h, shuffle } from './util.js';
 import { t } from './i18n.js';
 import { backend } from './backend.js';
 import { SCORED, playable, judge, basePoints } from './game.js';
@@ -125,19 +125,11 @@ function correctText(q) {
 }
 
 function feedback(q, ok, pts) {
-  const exp = (q.explanation || '').trim();
-  const expBox = exp ? h('div', { class: 'exp-panel' },
-    h('b', null, svg('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5V5.5"/></svg>'), t('play.explanation')),
-    h('p', null, exp)) : null;
+  const expBox = ui.explanationPanel(q.explanation);
   const last = H.questions.slice(H.i + 1).every(x => x.type === 'scoreboard');
   const nextBtn = h('button', { class: 'btn primary huge', onclick: () => go(H.i + 1) }, last ? t('hw.finish') : t('host.next') + ' →');
-  const result = ok === null
-    ? h('div', { class: 'result neutral' }, h('h1', null, t('play.thanks')))
-    : h('div', { class: 'result ' + (ok ? 'good' : 'bad') },
-      h('div', { class: 'result-icon' }, ok ? '✓' : '✕'),
-      h('h1', null, ok ? t('play.correct') : t('play.wrong')),
-      ok ? h('div', { class: 'result-pts' }, t('play.points', { n: pts })) : h('p', { class: 'result-correct' }, t('play.correctWas'), ' ', h('b', null, correctText(q))));
-  return h('div', { class: 'result-stack hw-result' }, result, expBox, h('div', { class: 'hw-next' }, nextBtn));
+  const result = ui.resultCard({ ok, pts, correct: ok === false ? correctText(q) : '', hasExp: !!expBox });
+  return h('div', { class: 'result-stack hw-result' + (expBox ? ' with-exp' : '') }, result, expBox, h('div', { class: 'hw-next' }, nextBtn));
 }
 
 async function finish() {

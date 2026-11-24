@@ -5,6 +5,7 @@ import { backend } from './backend.js';
 import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints } from './game.js';
 import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
+import { hikerSvg, hash } from './hikers.js';
 
 setFavicon();
 const app = document.getElementById('app');
@@ -382,10 +383,10 @@ function startTicker() {
   clearInterval(tick);
   tick = setInterval(() => {
     const left = G.qStart + q().time * 1000 - Date.now();
-    const el = document.querySelector('.timer-num');
+    const el = document.querySelector('.sun');
     if (el) el.textContent = Math.max(0, Math.ceil(left / 1000));
-    const ring = document.querySelector('.timer-ring');
-    if (ring) ring.style.setProperty('--p', Math.max(0, left / (q().time * 1000)));
+    const sky = document.querySelector('.sunset');
+    if (sky) sky.style.setProperty('--p', Math.max(0, left / (q().time * 1000)));
     if (left <= 0) reveal();
   }, 200);
 }
@@ -563,45 +564,85 @@ function qrSvg(text) {
   return el;
 }
 
+// Ventesiden: elevene dukker opp som turgåere spredt utover marka ved foten av fjellet.
 function renderLobbyInto(main) {
   const ids = playerIds();
-  if (TEST) put(main, h('section', { class: 'lobby-top test' },
-    h('div', { class: 'lobby-join' },
-      h('h1', { class: 'lobby-title' }, quiz.title),
-      h('p', { class: 'lobby-at' }, '🧪 ', h('b', null, t('test.title'))),
-      h('p', { class: 'lobby-scan' }, t('test.text')))));
-  else put(main,
-    h('section', { class: 'lobby-top' },
-      h('div', { class: 'lobby-join' },
-        h('h1', { class: 'lobby-title' }, quiz.title),
-        h('p', { class: 'lobby-at' }, t('host.joinAt'), ' ', h('b', null, joinHost())),
-        h('div', { class: 'lobby-pin' }, h('span', null, t('host.pin')), h('strong', null, G.pin.slice(0, 3) + ' ' + G.pin.slice(3))),
-        h('p', { class: 'lobby-scan' }, t('host.orScan'))),
-      h('div', { class: 'lobby-qr' }, qrSvg(joinUrl()))));
-  put(main,
-    h('section', { class: 'lobby-players' },
-      h('div', { class: 'lobby-bar' },
-        h('span', { class: 'lobby-count' }, t('host.players', { n: ids.length })),
-        ids.length ? h('span', { class: 'muted' }, t('host.kickHint')) : null,
-        h('span', { class: 'spacer' }),
-        h('label', { class: 'team-pick' }, icon('team'), h('select', { 'aria-label': t('host.teams'), onchange: e => setTeams(Number(e.target.value)) },
-          [0, 2, 3, 4, 5, 6, 7, 8].map(n => h('option', { value: n, selected: n === G.teams }, n ? t('host.nTeams', { n }) : t('host.noTeams'))))),
-        h('button', { class: 'btn ghost', onclick: () => { G.locked = !G.locked; persist(); render(); } }, G.locked ? [icon('lock'), t('host.unlock')] : [icon('unlock'), t('host.lock')]),
-        h('button', { class: 'btn primary big', onclick: next }, t('host.start'))),
-      !ids.length ? h('p', { class: 'waiting' }, h('span', { class: 'spinner small' }), t('host.waiting'))
-        : G.teams ? h('div', { class: 'team-cols' }, [...Array(G.teams).keys()].map(ti => {
-          const members = ids.filter(id => G.teamOf[id] === ti);
-          return h('div', { class: 'team-col', style: { '--tc': TEAM_COLORS[ti] } },
-            h('h3', { class: 'team-head' }, teamName(ti), h('span', null, members.length)),
-            h('div', { class: 'chips many' }, members.map(chip)));
-        }))
-        : h('div', { class: 'chips' + (ids.length > 30 ? ' many' : '') }, ids.map(chip))));
+  const scene = h('section', { class: 'trailhead' }, lobbyScene(),
+    h('h1', { class: 'scene-title day th-title' }, quiz.title),
+    h('div', { class: 'th-sign' },
+      TEST ? h('div', { class: 'th-board test' }, h('small', null, '🧪 ' + t('test.title')), h('p', null, t('test.text')))
+        : [h('div', { class: 'th-board' },
+            h('small', null, t('host.pin')),
+            h('strong', { class: 'th-pin' }, G.pin.slice(0, 3) + ' ' + G.pin.slice(3)),
+            h('span', null, t('host.joinAt'), ' ', h('b', null, joinHost()))),
+          h('div', { class: 'th-board th-qr', title: t('host.orScan') }, qrSvg(joinUrl()))],
+      h('div', { class: 'th-pole' })),
+    walkers(ids),
+    !ids.length ? h('p', { class: 'th-waiting' }, h('span', { class: 'spinner small' }), t('host.waiting')) : null);
+  put(main, scene,
+    h('section', { class: 'lobby-bar' },
+      h('span', { class: 'lobby-count' }, t('host.players', { n: ids.length })),
+      ids.length ? h('span', { class: 'muted' }, t('host.kickHint')) : null,
+      h('span', { class: 'spacer' }),
+      h('label', { class: 'team-pick' }, icon('team'), h('select', { 'aria-label': t('host.teams'), onchange: e => setTeams(Number(e.target.value)) },
+        [0, 2, 3, 4, 5, 6, 7, 8].map(n => h('option', { value: n, selected: n === G.teams }, n ? t('host.nTeams', { n }) : t('host.noTeams'))))),
+      h('button', { class: 'btn ghost', onclick: () => { G.locked = !G.locked; persist(); render(); } }, G.locked ? [icon('lock'), t('host.unlock')] : [icon('unlock'), t('host.lock')]),
+      h('button', { class: 'btn primary big', onclick: next }, t('host.start'))),
+    G.teams ? h('div', { class: 'team-legend' }, [...Array(G.teams).keys()].map(ti =>
+      h('span', { class: 'team-badge', style: { background: TEAM_COLORS[ti] } }, teamName(ti) + ' · ' + ids.filter(id => G.teamOf[id] === ti).length))) : null);
 }
 
-function chip(id) {
-  const isNew = !shownChips.has(id);
-  shownChips.add(id);
-  return h('button', { class: 'chip' + (isNew ? ' new' : ''), onclick: () => kick(id) }, G.players[id].name);
+// Plassene på marka er en fast, men tilfeldig utseende rekkefølge (ut fra PIN-en), så ingen hopper rundt når flere kommer.
+// Få elever: store figurer med god plass. Mange elever: mindre figurer tettere.
+function walkers(ids) {
+  const n = ids.length;
+  if (!n) return [];
+  const [cols, rows, size] = n <= 15 ? [7, 3, 1] : n <= 35 ? [10, 4, 0.8] : [13, 5, 0.66];
+  const cells = [...Array(cols * rows).keys()].sort((a, b) => hash(G.pin + ':' + a) - hash(G.pin + ':' + b));
+  const X0 = 25, X1 = 96, Y0 = 64, Y1 = 95; // marka, i prosent av bildet (venstre side er skiltet)
+  return ids.map((id, i) => {
+    const cell = cells[i % cells.length];
+    const hv = hash(id);
+    const jx = ((hv & 255) / 255 - 0.5) * 0.6 + (i >= cells.length ? 0.4 : 0);
+    const jy = (((hv >>> 8) & 255) / 255 - 0.5) * 0.5;
+    const cx = (cell % cols + 0.5 + jx) / cols, cy = (Math.floor(cell / cols) + 0.5 + jy) / rows;
+    const top = Y0 + (Y1 - Y0) * Math.min(1, Math.max(0, cy));
+    const isNew = !shownChips.has(id);
+    shownChips.add(id);
+    const color = G.teams ? TEAM_COLORS[G.teamOf[id]] : null;
+    return h('button', {
+      class: 'walker' + (isNew ? ' new' : ''), type: 'button', title: G.players[id].name, onclick: () => kick(id),
+      style: { left: (X0 + (X1 - X0) * Math.min(1, Math.max(0, cx))) + '%', top: top + '%', zIndex: Math.round(top * 10), '--k': (size * (0.84 + 0.16 * (top - Y0) / (Y1 - Y0))).toFixed(3) },
+    }, h('span', { class: 'walker-name' }, G.players[id].name), hikerSvg(id, color));
+  });
+}
+
+function lobbyScene() {
+  return svg(`<svg class="scene" viewBox="0 0 1600 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="lsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FCBF0"/><stop offset=".55" stop-color="#CFEBFA"/><stop offset="1" stop-color="#FFF2D6"/></linearGradient>
+      <radialGradient id="lsun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFFBE6"/><stop offset=".45" stop-color="#FFE58A"/><stop offset="1" stop-color="#FFE58A" stop-opacity="0"/></radialGradient>
+      <linearGradient id="lmtn" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A9B7C9"/><stop offset=".6" stop-color="#7D8EA6"/><stop offset="1" stop-color="#5E6F88"/></linearGradient>
+      <linearGradient id="lmead" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B9D99B"/><stop offset="1" stop-color="#8FBF73"/></linearGradient>
+    </defs>
+    <rect width="1600" height="700" fill="url(#lsky)"/>
+    <circle cx="1400" cy="110" r="130" fill="url(#lsun)"/>
+    <g fill="#fff" opacity=".85">
+      <g class="cloud c1"><ellipse cx="700" cy="90" rx="70" ry="22"/><ellipse cx="740" cy="76" rx="44" ry="28"/><ellipse cx="670" cy="84" rx="34" ry="20"/></g>
+      <g class="cloud c2"><ellipse cx="1250" cy="230" rx="56" ry="17"/><ellipse cx="1280" cy="218" rx="34" ry="22"/></g>
+    </g>
+    <path d="M0 380 L110 320 L230 350 L350 280 L460 330 L560 300 L660 340 L760 290 L880 340 L1000 300 L1120 340 L1260 290 L1380 330 L1500 300 L1600 330 V700 H0Z" fill="#C9D7E6"/>
+    <polygon points="600,440 780,320 850,345 980,190 1080,110 1170,190 1260,250 1380,330 1520,410 1600,440 1600,700 600,700" fill="url(#lmtn)"/>
+    <polygon points="1080,110 1170,190 1260,250 1380,330 1520,410 1600,440 1600,700 1100,700 1095,380" fill="#3E4C66" opacity=".22"/>
+    <polygon points="1080,110 1040,150 1058,158 1072,144 1086,162 1104,146 1130,160" fill="#fff" opacity=".9"/>
+    <line x1="1080" y1="114" x2="1080" y2="70" stroke="#2A1D05" stroke-width="3"/>
+    <path d="M1081 72 h34 l-8 9 l8 9 h-34z" fill="#FFB424" stroke="#2A1D05" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M0 420 C 260 380, 520 410, 800 392 S 1300 370, 1600 400 V700 H0Z" fill="url(#lmead)"/>
+    <path d="M0 600 C 300 560, 700 600, 1000 580 S 1400 560, 1600 590 V700 H0Z" fill="#9CCB80" opacity=".55"/>
+    <path d="M60 700 C 300 650, 520 610, 640 530 S 780 420, 900 380 S 1000 300, 1030 230 S 1065 150, 1080 116" fill="none" stroke="#F3E2B8" stroke-width="16" stroke-linecap="round" opacity=".9"/>
+    <path d="M60 700 C 300 650, 520 610, 640 530 S 780 420, 900 380 S 1000 300, 1030 230 S 1065 150, 1080 116" fill="none" stroke="#C9A86A" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round"/>
+    <g fill="#4F8A47" opacity=".9"><path d="M1500 430 l16 -46 l16 46z"/><path d="M1536 440 l13 -38 l13 38z"/><path d="M560 430 l13 -38 l13 38z"/></g>
+  </svg>`);
 }
 
 function audioPlayer(cur, autoplay) {
@@ -613,20 +654,28 @@ function audioPlayer(cur, autoplay) {
 
 function questionHead(cur, i = G.qi) {
   return h('div', { class: 'qhead' },
-    h('span', { class: 'qhead-mark' }, questionSvg(54)),
-    h('div', null,
-      h('div', { class: 'qhead-n' }, t('host.question', { n: i + 1, total: total() })),
-      h('h1', { class: 'qhead-text' + (cur.text.length > 120 ? ' long' : '') }, cur.text)));
+    h('span', { class: 'ribbon' }, t('host.question', { n: i + 1, total: total() })),
+    h('h1', { class: 'qhead-text' + (cur.text.length > 120 ? ' long' : '') }, cur.text));
 }
 
 function renderIntro(main) {
   const cur = q();
   put(main, h('div', { class: 'intro' + (isFinale() ? ' finale' : '') },
     G.round === 2 ? h('div', { class: 'intro-badge' }, '💬 ' + t('host.revote')) : isFinale() ? h('div', { class: 'intro-badge finale' }, t('host.finale')) : null,
-    h('div', { class: 'intro-mark' }, questionSvg(120)),
-    h('div', { class: 'qhead-n' }, t('host.question', { n: G.qi + 1, total: total() }) + ' · ' + t('type.' + cur.type)),
+    h('div', { class: 'intro-mark' }, questionSvg(110)),
+    h('span', { class: 'ribbon' }, t('host.question', { n: G.qi + 1, total: total() }) + ' · ' + t('type.' + cur.type)),
     h('h1', { class: 'intro-text' }, cur.text),
-    h('div', { class: 'intro-bar' }, h('span', { style: { animationDuration: INTRO_MS + 'ms' } }))));
+    introTrail()));
+}
+
+// En stiplet sti som tegnes frem til flagget mens spørsmålet vises.
+function introTrail() {
+  const d = 'M12 34 C 120 8, 220 40, 320 22 S 500 10, 566 26';
+  return svg(`<svg class="intro-trail" viewBox="0 0 600 48" aria-hidden="true">
+    <path d="${d}" fill="none" stroke="#E7E4DA" stroke-width="7" stroke-linecap="round"/>
+    <path class="intro-trail-draw" d="${d}" pathLength="1" fill="none" stroke="#FFB424" stroke-width="7" stroke-linecap="round" style="animation-duration:${INTRO_MS}ms"/>
+    <line x1="568" y1="28" x2="568" y2="2" stroke="#2A1D05" stroke-width="2.5"/><path d="M569 3 h22 l-5 6 l5 6 h-22z" fill="#FFB424" stroke="#2A1D05" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>`);
 }
 
 function renderInfo(main) {
@@ -639,19 +688,50 @@ function renderInfo(main) {
     h('div', { class: 'hfoot' }, h('span', null), h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
 }
 
+const FLAG = '<svg class="tile-flag" viewBox="0 0 30 36" aria-hidden="true"><line x1="4" y1="2" x2="4" y2="35" stroke="#2A1D05" stroke-width="2.6" stroke-linecap="round"/><path d="M5 3 H27 L21 10 L27 17 H5 Z" fill="#FFB424" stroke="#2A1D05" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+
+// Svarkortene. Ved fasit fylles hvert kort som en søyle (andel som svarte det), og riktig svar får flagg.
+// counts: antall svar per alternativ; first: svarene fra første runde (diskusjon), vist som en tynn strek.
 function tiles(cur, opts = {}) {
   if (!G.labels && cur.type !== 'truefalse') return null;
   const labels = cur.type === 'truefalse' ? [t('ed.true'), t('ed.false')] : G.labels;
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  const pct = (a, i) => Math.round(100 * a[i] / Math.max(1, sum(a)));
   return h('div', { class: 'tiles n' + labels.length + (opts.reveal ? ' revealed' : '') },
     labels.map((label, i) => {
+      const ci = colorIndex(cur.type, i);
       const correct = opts.correct?.[i];
-      return h('div', { class: 'tile' + (opts.reveal && correct === false ? ' dim' : ''), style: { background: COLORS[colorIndex(cur.type, i)] } },
-        h('span', { class: 'shape' }, svg(SHAPES[colorIndex(cur.type, i)])),
+      const style = { '--c': COLORS[ci] };
+      if (opts.counts) style['--p'] = pct(opts.counts, i) + '%';
+      if (opts.first) style['--f'] = pct(opts.first, i) + '%';
+      return h('div', { class: 'tile' + (opts.reveal && correct === false ? ' dim' : '') + (opts.reveal && correct ? ' ok' : ''), style },
+        h('span', { class: 'shape' }, svg(SHAPES[ci])),
         h('span', { class: 'tile-text' }, label),
-        opts.reveal && correct ? h('span', { class: 'tile-check' }, '✓') : null,
-        opts.reveal && correct === false ? h('span', { class: 'tile-wrong' }, '✕') : null,
-      );
+        opts.counts ? h('span', { class: 'tile-pct' }, (opts.first ? pct(opts.first, i) + ' % → ' : '') + pct(opts.counts, i) + ' %') : null,
+        opts.first ? h('span', { class: 'tile-first', title: t('host.round1') }) : null,
+        opts.reveal && correct ? svg(FLAG) : null);
     }));
+}
+
+// Hvor mange som har svart, som tekst og en prikk per elev.
+function answeredRow(cur) {
+  const n = Object.keys(G.answers).length, all = playerIds().length;
+  return h('div', { class: 'answered' },
+    h('span', { class: 'answered-n' }, t('host.answered', { n, total: all })),
+    all <= 60 ? h('span', { class: 'dots' + (all > 30 ? ' many' : '') }, Array.from({ length: all }, (_, i) => h('i', { class: i < n ? 'on' : null }))) : null,
+    h('span', { class: 'spacer' }),
+    G.round === 2 ? h('span', { class: 'round-tag' }, t('host.round2')) : null,
+    canDiscuss(cur) && G.round === 1 && !cur.discuss ? h('button', { class: 'btn ghost small', title: t('host.discussHelp'), onclick: discussNow }, '💬 ' + t('host.discussBtn')) : null,
+    h('button', { class: 'btn ghost small', onclick: reveal }, t('host.skip')));
+}
+
+// Nedtellingen: sola går ned over fjellryggen, og himmelen mørkner mens tiden går.
+function sunset(left, time) {
+  return h('div', { class: 'sunset', style: { '--p': Math.max(0, left / time) } },
+    h('div', { class: 'sun' }, Math.ceil(left / 1000)),
+    svg(`<svg class="ridge" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 60 V34 L90 18 L170 30 L260 10 L350 26 L430 16 L520 32 L610 12 L700 28 L790 14 L880 30 L980 16 L1080 30 L1200 20 V60Z" fill="#7D8EA6"/>
+      <path d="M0 60 V46 C 200 36, 420 50, 640 42 S 1000 36, 1200 44 V60Z" fill="#5E6F88"/></svg>`));
 }
 
 function renderQuestion(main) {
@@ -660,22 +740,18 @@ function renderQuestion(main) {
   let middle = h('div', { class: 'big-q' }, questionSvg(150));
   if (cur.type === 'short' || cur.type === 'wordcloud') middle = h('p', { class: 'answer-on-phone' }, '✎');
   if (cur.type === 'slider') middle = h('div', { class: 'slider-preview' }, h('span', null, cur.min), h('div', { class: 'slider-line' }), h('span', null, cur.max + (cur.unit ? ' ' + cur.unit : '')));
-  put(main, 
+  put(main,
     questionHead(cur),
-    h('div', { class: 'qbody' },
-      h('div', { class: 'timer-ring', style: { '--p': left / (cur.time * 1000) } }, h('span', { class: 'timer-num' }, Math.ceil(left / 1000))),
-      cur.image ? h('img', { class: 'qimg', src: cur.image, alt: '' }) : h('div', { class: 'qimg-empty' }, middle),
-      h('div', { class: 'acount' }, h('strong', { class: 'acount-n' }, Object.keys(G.answers).length), h('span', null, t('host.answers')),
-        h('button', { class: 'btn ghost small', onclick: reveal }, t('host.skip')),
-        canDiscuss(cur) && G.round === 1 && !cur.discuss ? h('button', { class: 'btn ghost small', title: t('host.discussHelp'), onclick: discussNow }, '💬 ' + t('host.discussBtn')) : null,
-        G.round === 2 ? h('span', { class: 'round-tag' }, t('host.round2')) : null)),
+    answeredRow(cur),
+    h('div', { class: 'qbody' }, cur.image ? h('img', { class: 'qimg', src: cur.image, alt: '' }) : h('div', { class: 'qimg-empty' }, middle)),
     audioPlayer(cur, true),
-    tiles(cur));
+    tiles(cur),
+    sunset(left, cur.time * 1000));
 }
 
 function updateCount() {
-  const el = document.querySelector('.acount-n');
-  if (el) el.textContent = Object.keys(G.answers).length;
+  const row = document.querySelector('.answered');
+  if (row && G.phase === 'question') row.replaceWith(answeredRow(q()));
   const cn = document.querySelector('.hbar-n');
   if (cn) cn.textContent = playerIds().length;
 }
@@ -698,12 +774,12 @@ function renderReveal(main) {
       const after = pct(counts.reduce((s, c, i) => s + (correct[i] ? c : 0), 0), answers.length);
       put(main, h('p', { class: 'before-after' }, '💬 ' + t('host.beforeAfter', { a: before, b: after })));
     }
+    const exp = explanationBox(cur);
     body = h('div', { class: 'reveal-wrap' },
-      h('div', { class: 'reveal-top' + (cur.image ? ' with-img' : '') },
-        cur.image ? h('img', { class: 'qimg small', src: cur.image, alt: '' }) : null,
-        bars(cur, counts, correct),
-        explanationBox(cur)),
-      tiles(cur, { correct, reveal: true }));
+      cur.image ? h('img', { class: 'qimg small', src: cur.image, alt: '' }) : null,
+      h('div', { class: 'reveal-cards' + (exp ? ' with-exp' : '') },
+        tiles(cur, { correct, reveal: true, counts, first: G.round === 2 && G.first ? G.first : null }),
+        exp));
   } else if (cur.type === 'short') {
     const groups = {};
     answers.forEach(a => { const k = normText(a.value); (groups[k] ||= { text: String(a.value), n: 0 }).n++; });
@@ -719,10 +795,10 @@ function renderReveal(main) {
     body = h('div', { class: 'reveal-wrap' },
       h('ol', { class: 'order-list' }, cur.items.map((it, i) => {
         const d = G.map.indexOf(i);
-        return h('li', { style: { background: COLORS[d] } }, h('span', { class: 'shape' }, svg(SHAPES[d])), h('span', null, it));
+        return h('li', { style: { '--c': COLORS[d] } }, h('span', { class: 'shape' }, svg(SHAPES[d])), h('span', null, it));
       })));
   }
-  // Forklaring ved siden av (for typer uten søyler; der står den allerede ved søylene).
+  // Forklaring ved siden av (for flervalg står den allerede ved svarkortene).
   const sideExp = ['quiz', 'poll', 'truefalse'].includes(cur.type) ? null : explanationBox(cur);
   put(main, h('div', { class: 'reveal-body' }, sideExp ? h('div', { class: 'reveal-split' }, body, sideExp) : body), audioPlayer(cur, false));
   put(main, h('div', { class: 'hfoot' },
@@ -746,21 +822,6 @@ function explanationBox(cur) {
   const exp = (cur.explanation || '').trim();
   if (!exp) return null; // tomt felt = ingen boks
   return h('aside', { class: 'exp-box' }, h('b', null, icon('book', 16), t('host.explanation')), h('p', null, exp));
-}
-
-function bars(cur, counts, correct) {
-  // Etter «stem igjen»: første runde vises som en lys søyle ved siden av.
-  const first = G.round === 2 && G.first ? G.first : null;
-  const max = Math.max(1, ...counts, ...(first || []));
-  return h('div', { class: 'bars' + (first ? ' with-first' : '') }, counts.map((c, i) => {
-    const ci = colorIndex(cur.type, i);
-    return h('div', { class: 'bar-col' + (correct && !correct[i] ? ' dim' : '') },
-      h('div', { class: 'bar-n' }, correct?.[i] ? '✓ ' : '', first ? h('span', { class: 'bar-first-n' }, first[i] + ' → ') : null, c),
-      h('div', { class: 'bar-area' },
-        first ? h('div', { class: 'bar first', title: t('host.round1'), style: { height: Math.max(3, first[i] / max * 100) + '%', background: COLORS[ci] } }) : null,
-        h('div', { class: 'bar', style: { height: Math.max(3, c / max * 100) + '%', background: COLORS[ci] } })),
-      h('div', { class: 'bar-shape', style: { background: COLORS[ci] } }, svg(SHAPES[ci])));
-  }));
 }
 
 function renderDiscuss(main) {
@@ -788,7 +849,7 @@ function wordCloud(answers) {
   // Største ord i midten, de andre fordelt annenhver side.
   const arranged = [];
   list.forEach((w, i) => (i % 2 ? arranged.push(w) : arranged.unshift(w)));
-  const palette = ['#2A1D05', '#E07B10', '#1F5FD1', '#1E8B3A', '#7A3BD9', '#D62839'];
+  const palette = ['#2A1D05', ...COLORS, '#A8740F'];
   return h('div', { class: 'cloud-wrap' },
     h('div', { class: 'cloud' }, arranged.map(([k, w], i) => h('button', {
       class: 'cloud-word', title: t('host.hideWord'),
@@ -879,7 +940,7 @@ function renderScoreboard(main) {
   const crowded = top.some((p, i) => i && frac(top[i - 1].score) - frac(p.score) < 0.1);
   const label = p => h('span', { class: 'trail-label' },
     h('b', { style: p.color ? { color: p.color } : null }, p.name),
-    h('span', null, p.score + ' p', p.pts ? h('em', null, ' +' + p.pts) : null, p.streak > 1 ? ' 🔥' + p.streak : null));
+    h('span', null, t('play.score', { n: p.score }), p.pts ? h('em', null, ' ' + t('play.points', { n: p.pts })) : null, p.streak > 1 ? ' · ' + t('play.streak', { n: p.streak }) : null));
   const markers = top.map((p, i) => {
     const endX = parseFloat(at(ends[i]).left);
     // Navnelappen står annenhver gang til høyre og venstre, men aldri utenfor kanten.
@@ -979,7 +1040,7 @@ function renderPodium(main) {
     if (!p) return null;
     return h('div', { class: 'summit s' + pk.place, style: { left: (pk.x / 16) + '%', top: (peakY(pk.y) / 7) + '%', animationDelay: (RISE[pk.place] + 0.9) + 's' } },
       h('div', { class: 'summit-name' }, p.name),
-      h('div', { class: 'summit-score' }, p.score + ' p'),
+      h('div', { class: 'summit-score' }, t('play.score', { n: p.score })),
       svg('<svg class="summit-flag" width="34" height="40" viewBox="0 0 34 40"><line x1="3" y1="2" x2="3" y2="40" stroke="#2A1D05" stroke-width="2.5"/><path d="M4 3 H30 L24 10 L30 17 H4 Z" fill="#FFB424" stroke="#2A1D05" stroke-width="1.6" stroke-linejoin="round"/></svg>'));
   });
   put(main,
@@ -988,7 +1049,7 @@ function renderPodium(main) {
       h('h1', { class: 'scene-title' }, all.length ? (G.teams ? t('host.teamPodium') : t('host.podium')) : t('host.nobody')),
       labels),
     (G.teams ? people.length : people.length > 3) ? h('details', { class: 'all-results' }, h('summary', null, t('host.allResults')),
-      h('ol', null, (G.teams ? people : people.slice(3)).map(p => h('li', { value: p.rank }, h('span', null, p.name), h('b', null, p.score))))) : null,
+      h('ol', null, (G.teams ? people : people.slice(3)).map(p => h('li', { value: p.rank }, h('span', null, p.name), h('b', null, t('play.score', { n: p.score })))))) : null,
     h('div', { class: 'hfoot' },
       h('div', { class: 'row' },
         people.length ? h('button', { class: 'btn ghost', onclick: downloadResults }, [icon('download'), t('res.download')]) : null,

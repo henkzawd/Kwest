@@ -30,8 +30,8 @@ try {
   await host.locator('.modal textarea').fill(readFileSync(ROOT + 'eksempler/eksempel-kwest.json', 'utf8'));
   await host.locator('.modal').getByRole('button', { name: 'Importer' }).click();
   await host.getByRole('button', { name: '▶ Start' }).click();
-  await host.locator('.lobby-pin strong').waitFor();
-  const pin = (await host.locator('.lobby-pin strong').textContent()).replace(/\D/g, '');
+  await host.locator('.th-pin').waitFor();
+  const pin = (await host.locator('.th-pin').textContent()).replace(/\D/g, '');
 
   const bots = await ctx.newPage();
   await bots.goto(URL0 + 'tests/blank.html').catch(() => {});
@@ -75,7 +75,7 @@ try {
     }
   }, { pin, N });
   await host.locator('.team-pick select').selectOption('4');
-  await host.locator('.chip').nth(N - 1).waitFor({ timeout: 40000 });
+  await host.locator('.walker').nth(N - 1).waitFor({ timeout: 40000 });
   await host.waitForTimeout(1500);
   await host.screenshot({ path: (process.env.SHOTS || '/tmp') + '/load-lobby.png' });
   await host.getByRole('button', { name: 'Start' }).click();

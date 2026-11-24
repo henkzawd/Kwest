@@ -1,13 +1,13 @@
 // Spørsmålstyper, poengberegning og import/eksport-format.
 import { uid, normText, levenshtein } from './util.js';
 
-export const COLORS = ['#D62839', '#1F5FD1', '#1E8B3A', '#7A3BD9'];
-// Eventyr-symboler: fjell, kompass, ryggsekk og veiskilt.
+// Svarfargene: solnedgang, fjord, lyng og skifer – med hvert sitt symbol (sol, bølge, lyng og måne).
+export const COLORS = ['#D0571F', '#12808C', '#A23A72', '#3E4C63'];
 export const SHAPES = [
-  '<svg viewBox="0 0 20 20"><path fill="currentColor" d="M.6 17.6 7.2 5.4l3.3 6 2.6-3.9 6.3 10.1z"/><path fill="#fff" opacity=".55" d="M7.2 5.4 9.1 8.9 7.9 8.3 6.8 9.5 5.6 8.3z"/></svg>',
-  '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" stroke-width="2.2"/><path fill="currentColor" d="M14.8 5.2 11.3 11.3 5.2 14.8 8.7 8.7z"/><circle cx="10" cy="10" r="1.3" fill="#fff" opacity=".6"/></svg>',
-  '<svg viewBox="0 0 20 20"><path fill="currentColor" d="M7.2 5V4a2.8 2.8 0 0 1 5.6 0v1h-1.7V4a1.1 1.1 0 0 0-2.2 0v1z"/><path fill="currentColor" fill-rule="evenodd" d="M7 5h6a4 4 0 0 1 4 4v7.2a2.3 2.3 0 0 1-2.3 2.3H5.3A2.3 2.3 0 0 1 3 16.2V9a4 4 0 0 1 4-4zm-.5 7.2a1 1 0 0 0-1 1v2.6a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-2.6a1 1 0 0 0-1-1z"/></svg>',
-  '<svg viewBox="0 0 20 20"><rect x="9" y="1.5" width="2.2" height="17.5" rx=".8" fill="currentColor"/><path fill="currentColor" d="M2.5 3.6h10.6l3 2.4-3 2.4H2.5z"/><path fill="currentColor" d="M17.6 10.2H7l-3 2.4 3 2.4h10.6z"/></svg>',
+  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6" fill="currentColor"/><path d="M12 2.6v2.6M12 18.8v2.6M2.6 12h2.6M18.8 12h2.6M5.4 5.4l1.8 1.8M16.8 16.8l1.8 1.8M5.4 18.6l1.8-1.8M16.8 7.2l1.8-1.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M2.5 9.2c2.4-2.6 4.8-2.6 7.2 0s4.8 2.6 7.2 0c1.6-1.7 3.2-2.3 4.6-1.6M2.5 15.6c2.4-2.6 4.8-2.6 7.2 0s4.8 2.6 7.2 0c1.6-1.7 3.2-2.3 4.6-1.6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg>',
+  '<svg viewBox="0 0 24 24"><g fill="currentColor"><circle cx="12" cy="6.4" r="3.3"/><circle cx="17.3" cy="10.3" r="3.3"/><circle cx="15.3" cy="16.5" r="3.3"/><circle cx="8.7" cy="16.5" r="3.3"/><circle cx="6.7" cy="10.3" r="3.3"/></g></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M15.2 2.8a9.4 9.4 0 1 0 6 14.4 7.6 7.6 0 0 1-6-14.4z" fill="currentColor"/></svg>',
 ];
 
 // Rekkefølgen her er rekkefølgen i «Nytt spørsmål»-menyen.
@@ -18,7 +18,7 @@ export const SCORED = ['quiz', 'truefalse', 'short', 'slider', 'order'];
 // Spørsmål som kan ha «diskuter med sidemannen og stem igjen».
 export const DISCUSS_TYPES = ['quiz', 'truefalse', 'poll'];
 // Lag: farger og antall (navnene står i i18n.js som team.0 … team.7).
-export const TEAM_COLORS = ['#D62839', '#1F5FD1', '#1E8B3A', '#7A3BD9', '#E07B10', '#0E8C8C', '#C2185B', '#5D4037'];
+export const TEAM_COLORS = ['#D0571F', '#12808C', '#A23A72', '#3E4C63', '#A8740F', '#4E7A3B', '#7A4A2E', '#6D6A5C'];
 // Reaksjoner elevene kan sende til storskjermen (bare disse – ingen fritekst).
 export const REACTIONS = { g: '🐐', p: '⛰️' };
 
@@ -215,11 +215,11 @@ export function playable(q) {
   return c;
 }
 
+// Poengene er høydemeter: et riktig svar gir 50–100 m (raskere svar gir mer), dobbel gir 100–200 m.
 export function basePoints(q) {
-  return q.points === 'double' ? 2000 : q.points === 'none' ? 0 : 1000;
+  return q.points === 'double' ? 200 : q.points === 'none' ? 0 : 100;
 }
 
-// Kahoot-lignende: riktig svar gir 500–1000 poeng, raskere svar gir mer.
 export function speedPoints(q, elapsedMs) {
   const base = basePoints(q);
   if (!base) return 0;
@@ -258,7 +258,7 @@ export function judge(q, value, map) {
   }
 }
 
-// Sant/usant: «Sant» får blå, «Usant» får rød (samme på storskjerm og mobil).
+// Sant/usant: «Sant» får sola, «Usant» får månen (samme på storskjerm og mobil).
 export function colorIndex(type, i) {
-  return type === 'truefalse' ? (i === 0 ? 1 : 0) : i;
+  return type === 'truefalse' ? (i === 0 ? 0 : 3) : i;
 }
