@@ -61,3 +61,16 @@ export function landscape() {
     </g>
   </svg>`);
 }
+
+// Det lille spørsmålstegnet som står på fjelltoppene (i stedet for et flagg).
+// Gir SVG-tekst som kan settes inn i en større tegning: prikken står på (x, y), og tegnet er h høyt.
+export function peakMark(x, y, h, id) {
+  const s = h / 96;
+  return `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="66"><stop offset="0" stop-color="${TOP}"/><stop offset=".55" stop-color="#FFB424"/><stop offset="1" stop-color="${BOTTOM}"/></linearGradient></defs>
+    <g transform="translate(${x - 32 * s} ${y - 96 * s}) scale(${s})">
+      <path d="M15 30 C15 10, 50 6, 50 29 C50 44, 32 44, 32 60" fill="none" stroke="#7A4A10" stroke-opacity=".55" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="32" cy="85" r="13" fill="#7A4A10" fill-opacity=".55"/>
+      <path d="M15 30 C15 10, 50 6, 50 29 C50 44, 32 44, 32 60" fill="none" stroke="url(#${id})" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="32" cy="85" r="10.5" fill="#FF9A22"/>
+    </g>`;
+}

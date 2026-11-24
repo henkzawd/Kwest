@@ -212,17 +212,26 @@ select { cursor: pointer; }
 
 /* Ventesiden: turgåere ved foten av fjellet */
 .trailhead { position: relative; width: min(100%, calc((100vh - 230px) * 16 / 7)); aspect-ratio: 16 / 7; margin: 0 auto; border-radius: 22px; overflow: hidden; box-shadow: 0 10px 40px rgba(60, 110, 160, .22); container-type: size; }
-.th-title { left: 26%; right: 4%; top: 3% !important; font-size: clamp(1.3rem, 2.8vw, 2.4rem) !important; }
-.th-sign { position: absolute; left: 2.2%; top: 5%; bottom: 14%; z-index: 600; display: flex; flex-direction: column; align-items: flex-start; }
-.th-board { background: linear-gradient(180deg, #E8C98F, #D6AE6B); color: var(--brown); border: 3px solid #8E6B2E; border-radius: 12px; padding: .45em 1em .55em; box-shadow: 0 6px 16px rgba(80, 50, 10, .25); }
-.th-board small { display: block; font-weight: 800; font-size: clamp(.75rem, 1.1vw, 1rem); letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
-.th-board strong { display: block; font-variant-numeric: lining-nums tabular-nums; font-size: clamp(2.6rem, 6.4vw, 5.6rem); font-weight: 800; letter-spacing: .03em; line-height: 1; }
-.th-board > span { display: block; font-size: clamp(.85rem, 1.3vw, 1.25rem); font-weight: 600; }
-.th-board.test { max-width: 34vw; }
-.th-board.test p { margin: 4px 0 0; font-size: clamp(.9rem, 1.3vw, 1.2rem); }
-.th-qr { margin: 10px 0 0 20px; padding: 7px; width: clamp(110px, 12vw, 200px); }
-.th-qr svg { width: 100%; height: auto; display: block; background: #fff; border-radius: 6px; }
-.th-pole { flex: 1; width: 10px; margin-left: 44px; background: #8E6B2E; border-radius: 3px; min-height: 12px; }
+.trailhead .th-title { left: 37%; right: auto; max-width: 27%; text-align: left; top: 4%; font-size: clamp(1.3rem, 2.6vw, 2.3rem); }
+/* Værbitt treskilt: pilskilt med koden øverst, QR-kode spikret på en plate under. Alle mål følger bildets størrelse. */
+.th-sign { position: absolute; left: 2.5%; top: 4%; bottom: 9%; width: 32cqw; z-index: 600; }
+.th-post { position: absolute; left: 10.5cqw; top: 2cqh; bottom: 0; width: 2.3cqw; border-radius: 4px 4px 2px 2px;
+  background: repeating-linear-gradient(90deg, transparent 0 .45cqw, rgba(60, 35, 15, .16) .45cqw .55cqw), linear-gradient(90deg, #5E3E1F, #94693D 35%, #84592F 70%, #4F3418);
+  box-shadow: inset 0 -1.5cqh 1cqh -1cqh rgba(40, 60, 20, .45), 4px 6px 10px rgba(40, 30, 10, .22); }
+.th-post::after { content: ""; position: absolute; left: -1.5cqw; right: -1.5cqw; bottom: -1.2cqh; height: 2.4cqh; border-radius: 50%; background: rgba(40, 70, 30, .28); z-index: -1; }
+.wood { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.th-arrow { position: relative; width: 32cqw; aspect-ratio: 400 / 180; rotate: -4deg; transform-origin: 35% 60%; filter: drop-shadow(3px 6px 6px rgba(40, 30, 10, .3)); }
+.th-text { position: absolute; inset: 9% 20% 10% 10%; display: flex; flex-direction: column; justify-content: center; color: #3A250F; text-shadow: 0 1px 0 rgba(255, 236, 200, .45), 0 -1px 0 rgba(40, 20, 0, .35); }
+.th-text small { font-weight: 800; font-size: 1.45cqw; letter-spacing: .12em; text-transform: uppercase; opacity: .85; }
+.th-text strong { font-variant-numeric: lining-nums tabular-nums; font-size: 6.1cqw; font-weight: 800; letter-spacing: .03em; line-height: 1.02; white-space: nowrap; }
+.th-text > span { font-size: 1.55cqw; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.th-arrow.test .th-text p { margin: .4cqh 0 0; font-size: 1.45cqw; line-height: 1.3; }
+.th-qrboard { position: relative; margin: 2.2cqh 0 0 3.6cqw; width: 16cqw; aspect-ratio: 200 / 210; rotate: 2.5deg; filter: drop-shadow(3px 6px 6px rgba(40, 30, 10, .3)); }
+.th-paper { position: absolute; inset: 15% 14% 13%; background: #FBF8EF; padding: 5%; rotate: -1.5deg; box-shadow: 0 2px 4px rgba(40, 25, 5, .35); }
+.th-paper::before { content: ""; position: absolute; inset: -.5cqw; pointer-events: none;
+  background: radial-gradient(circle, #8C2F1F 0 45%, transparent 52%) 0 0 / 1.3cqw 1.3cqw no-repeat, radial-gradient(circle, #8C2F1F 0 45%, transparent 52%) 100% 0 / 1.3cqw 1.3cqw no-repeat,
+    radial-gradient(circle, #8C2F1F 0 45%, transparent 52%) 0 100% / 1.3cqw 1.3cqw no-repeat, radial-gradient(circle, #8C2F1F 0 45%, transparent 52%) 100% 100% / 1.3cqw 1.3cqw no-repeat; }
+.th-paper svg { width: 100%; height: 100%; display: block; }
 .th-waiting { position: absolute; left: 25%; right: 4%; top: 74%; text-align: center; margin: 0; color: var(--brown); font-weight: 700; font-size: clamp(1rem, 1.6vw, 1.4rem); }
 .walker { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; padding: 0; cursor: pointer; }
 .walker .hiker { display: block; height: calc(var(--k) * 11cqh); width: auto; filter: drop-shadow(0 3px 2px rgba(40, 60, 30, .25)); }
@@ -506,7 +515,7 @@ select { cursor: pointer; }
 .scene-title { position: absolute; top: 4%; left: 0; right: 0; text-align: center; color: #FFF4DC; font-size: clamp(1.6rem, 3.4vw, 2.8rem); text-shadow: 0 2px 12px rgba(27, 26, 71, .6); margin: 0; }
 .summit { position: absolute; transform: translate(-6px, -100%); display: flex; flex-direction: column; align-items: flex-start; animation: summit-in .7s ease-out both; pointer-events: none; }
 @keyframes summit-in { from { opacity: 0; transform: translate(-6px, calc(-100% + 16px)); } }
-.summit-flag { display: block; margin-left: 4px; }
+.summit-flag { display: block; margin-left: -10px; filter: drop-shadow(0 2px 3px rgba(27, 16, 48, .35)); }
 .summit-name, .summit-score { background: rgba(255, 252, 244, .94); color: var(--ink); border-radius: 10px; padding: 4px 12px; box-shadow: 0 4px 14px rgba(27, 16, 48, .25); white-space: nowrap; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
 .summit-name { font-family: var(--display); font-size: clamp(1.1rem, 2.2vw, 2rem); }
 .summit-score { font-weight: 700; font-size: clamp(.8rem, 1.2vw, 1.05rem); color: var(--muted); margin: 4px 0 6px; }
