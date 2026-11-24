@@ -103,9 +103,9 @@ try {
   await teacher.getByRole('button', { name: '▶ Start' }).click();
   await teacher.waitForURL(/host\.html/);
   const host = teacher;
-  await host.locator('.lobby-pin strong').waitFor();
-  const pin = (await host.locator('.lobby-pin strong').textContent()).replace(/\D/g, '');
-  const qrOk = await host.locator('.lobby-qr svg').count();
+  await host.locator('.th-pin').waitFor();
+  const pin = (await host.locator('.th-pin').textContent()).replace(/\D/g, '');
+  const qrOk = await host.locator('.th-qr svg').count();
   if (!qrOk) throw new Error('Mangler QR-kode');
   step('Spill startet med PIN ' + pin);
 
@@ -116,7 +116,7 @@ try {
   await shot(p1, '06-mobil-navn');
   await p1.getByPlaceholder('Skriv navnet ditt').fill('Ola');
   await p1.getByRole('button', { name: 'Bli med!' }).click();
-  await p1.getByText('Du er med i kwestet!').waitFor();
+  await p1.getByText('Klar for kwest!').waitFor();
   // Elev 2 skriver PIN selv
   await p2.goto(URL0);
   await p2.getByPlaceholder('123456').fill(pin);
@@ -126,13 +126,13 @@ try {
   await p2.getByText('Navnet er allerede tatt').waitFor();
   await p2.getByPlaceholder('Skriv navnet ditt').fill('Kari');
   await p2.getByRole('button', { name: 'Bli med!' }).click();
-  await p2.getByText('Du er med i kwestet!').waitFor();
-  await host.locator('.chip').nth(1).waitFor();
+  await p2.getByText('Klar for kwest!').waitFor();
+  await host.locator('.walker').nth(1).waitFor();
   await shot(host, '07-lobby');
   step('To elever med (duplikatnavn ble avvist)');
   // Lag og reaksjoner
   await host.locator('.team-pick select').selectOption('2');
-  await host.locator('.team-col').nth(1).waitFor();
+  await host.locator('.team-legend .team-badge').nth(1).waitFor();
   await p1.locator('.team-badge').waitFor();
   await p1.locator('.react-btn').first().click();
   await p1.locator('.react-btn').nth(1).click();
@@ -152,7 +152,7 @@ try {
   const waitQ = async () => {
     await host.locator('.intro').waitFor();
     await shot(host, 'intro');
-    await host.locator('.timer-ring').waitFor({ timeout: 8000 });
+    await host.locator('.sunset').waitFor({ timeout: 8000 });
   };
   // 2: ordsky
   await waitQ();
@@ -179,22 +179,22 @@ try {
   await shot(p2, '12c-mobil-diskuter');
   await host.getByRole('button', { name: /Stem igjen/ }).click();
   await p1.getByText('Stem igjen!').waitFor();
-  await host.locator('.timer-ring').waitFor({ timeout: 8000 });
+  await host.locator('.sunset').waitFor({ timeout: 8000 });
   await p1.locator('.pbtn', { hasText: '4' }).click();
   await p2.locator('.pbtn', { hasText: '2' }).click();
   await host.locator('.tiles.revealed').waitFor();
   await host.locator('.before-after').waitFor();
-  if (!(await host.locator('.bar.first').count())) throw new Error('Mangler søyler fra første runde');
+  if (!(await host.locator('.tile-first').count())) throw new Error('Mangler første runde i svarkortene');
   step('Diskusjonsspørsmål: to runder med «før → etter» på storskjermen');
   await p1.getByText('Riktig!').waitFor();
-  await p2.getByText('Feil').waitFor();
+  await p2.getByText('Ikke denne gangen').waitFor();
   await host.waitForTimeout(900); await shot(host, '13-resultat');
   if (!(await host.locator('.exp-box').count())) throw new Error('Mangler forklaring på storskjermen');
   await p2.locator('.exp-panel').waitFor();
   await p2.getByText('Riktig svar: 4').waitFor();
   await shot(p2, '15b-mobil-forklaring');
   step('Forklaring vises på storskjerm og mobil, med riktig svar for den som svarte feil');
-  if (!(await host.locator('.tile-wrong').count())) throw new Error('Gale svar er ikke merket');
+  if (!(await host.locator('.tile.dim').count())) throw new Error('Gale svar er ikke merket');
   await shot(p1, '14-mobil-riktig');
   await shot(p2, '15-mobil-feil');
   await host.getByRole('button', { name: 'Neste' }).click();
@@ -217,7 +217,7 @@ try {
   await p1.locator('.ptext input').fill('Hudenn'); await p1.getByRole('button', { name: 'Send' }).click();
   await p2.locator('.ptext input').fill('Hjernen'); await p2.getByRole('button', { name: 'Send' }).click();
   await p1.getByText('Riktig!').waitFor();
-  await p2.getByText('Feil').waitFor();
+  await p2.getByText('Ikke denne gangen').waitFor();
   await shot(host, '17-kortsvar');
   await host.getByRole('button', { name: 'Neste' }).click();
   // Egen poengtavle-side
@@ -262,7 +262,7 @@ try {
   await p1.getByRole('button', { name: 'Send' }).click();
   await p2.getByRole('button', { name: 'Send' }).click();
   await p1.getByText('Riktig!').waitFor();
-  await p2.getByText('Feil').waitFor();
+  await p2.getByText('Ikke denne gangen').waitFor();
   await shot(host, '21-rekkefolge-resultat');
   await host.getByRole('button', { name: 'Neste' }).click();
   await host.getByRole('button', { name: 'Neste' }).click();
@@ -272,7 +272,7 @@ try {
   await p1.locator('.pbtn').nth(0).click();
   await p2.locator('.pbtn').nth(1).click();
   await host.locator('.tiles.revealed').waitFor();
-  await host.getByRole('button', { name: /Pallen/ }).click();
+  await host.getByRole('button', { name: /Toppen/ }).click();
   await host.locator('.podium-scene').waitFor();
   await host.waitForTimeout(3800);
   await shot(host, '22-pallen');
@@ -291,7 +291,7 @@ try {
   await shot(p1, '23-mobil-ferdig');
   const [dl] = await Promise.all([host.waitForEvent('download'), host.getByRole('button', { name: /Last ned resultater/ }).click()]);
   const csv = readFileSync(await dl.path(), 'utf8');
-  if (!csv.includes('Ola') || !csv.includes('Plass;Navn;Lag;Poeng') || !csv.includes('Hudenn (✓')) throw new Error('Feil i resultatfil:\n' + csv);
+  if (!csv.includes('Ola') || !csv.includes('Plass;Navn;Lag;Høydemeter') || !csv.includes('Hudenn (✓')) throw new Error('Feil i resultatfil:\n' + csv);
   step('Resultatfil lastet ned: ' + csv.split('\n')[1].slice(0, 80));
   step('Spillet gikk gjennom alle 8 typer, Ola vant');
 
@@ -352,8 +352,8 @@ try {
   await host.getByPlaceholder('Skriv spørsmålet her').fill('Ett ord om hjertet');
   await host.getByRole('button', { name: /Prøvekjør/ }).click();
   await host.waitForURL(/test=1/);
-  await host.locator('.chip').nth(4).waitFor();
-  if (await host.locator('.lobby-qr').count()) throw new Error('Prøvekjøring skal ikke vise QR-kode');
+  await host.locator('.walker').nth(4).waitFor();
+  if (await host.locator('.th-qr').count()) throw new Error('Prøvekjøring skal ikke vise QR-kode');
   await shot(host, '27-provekjoring');
   await host.getByRole('button', { name: 'Start' }).click();
   for (let guard = 0; guard < 200 && !(await host.locator('.podium-scene').count()); guard++) {

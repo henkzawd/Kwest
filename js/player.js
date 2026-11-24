@@ -1,10 +1,11 @@
-// Elevsiden: bli med med PIN + kallenavn, og svar på mobilen.
+// Elevsiden: bli med med Kwest-kode + navn, og svar på mobilen.
 import { h, svg, clear, uid, qs, baseUrl } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { feedbackDialog } from './feedback.js';
 import { COLORS, SHAPES, TEAM_COLORS, REACTIONS, colorIndex } from './game.js';
 import { wordmark, questionSvg, exclamationSvg, landscape, setFavicon } from './logo.js';
+import { hikerSvg } from './hikers.js';
 
 setFavicon();
 const app = document.getElementById('app');
@@ -30,6 +31,9 @@ try {
 
 function rerender() { if (S.view) S.view(); }
 
+// Høydemåleren øverst til høyre: et lite fjell foran høydemeterne.
+const altIcon = () => svg('<svg class="alti-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1 14 6 5l3 5 2-3 4 7z" fill="currentColor"/></svg>');
+
 function frame(content, opts = {}) {
   clear(app);
   const team = opts.bar ? myTeam() : null;
@@ -38,7 +42,7 @@ function frame(content, opts = {}) {
         h('span', { class: 'pbar-name' }, S.name),
         team ? h('span', { class: 'pbar-team', style: { background: team.color } }, team.name) : null,
         S.lost ? h('span', { class: 'pbar-lost' }, t('play.lost')) : null,
-        h('span', { class: 'pbar-score' }, t('play.score', { n: S.score })))
+        h('span', { class: 'pbar-score' }, altIcon(), t('play.score', { n: S.score })))
     : h('header', { class: 'ptop' }, opts.hero ? h('span') : wordmark(34), langButton(rerender));
   app.append(top, h('main', { class: 'pmain ' + (opts.cls || '') }, content));
   if (opts.react) { const bar = reactBar(); if (bar) app.append(bar); }
@@ -126,7 +130,7 @@ function discussView(st) {
   const ci = mine !== null && mine !== undefined ? colorIndex(st.q.type, S.myAnswer) : null;
   message(() => t('play.discuss'), () => t('play.discussText'), {
     icon: h('div', { class: 'big-mark' }, '💬'),
-    extra: mine ? h('div', { class: 'my-answer', style: { background: COLORS[ci] } }, h('small', null, t('play.youAnswered')), h('b', null, mine)) : null,
+    extra: mine ? h('div', { class: 'my-answer', style: { '--c': COLORS[ci] } }, h('small', null, t('play.youAnswered')), h('b', null, mine)) : null,
     react: true,
   });
 }
@@ -206,12 +210,12 @@ document.addEventListener('visibilitychange', () => {
 function lobby() {
   S.view = lobby;
   const team = myTeam();
+  // Samme figur som eleven har på storskjermen (turgåer, eller en sjelden gang en fjellgeit).
   frame(h('div', { class: 'pmsg lobby' },
-    h('div', { class: 'big-mark' }, exclamationSvg(110)),
+    h('div', { class: 'lobby-hiker' }, hikerSvg(S.id, team?.color, 150)),
     h('div', { class: 'banner' }, S.name),
     team ? h('div', { class: 'team-badge', style: { background: team.color } }, t('play.yourTeam', { name: team.name })) : null,
-    h('h1', null, t('join.youreIn')),
-    h('p', null, t('join.seeName'))), { cls: 'center', react: true });
+    h('h1', null, t('join.youreIn'))), { cls: 'center', react: true });
 }
 
 // ---------- Spillet ----------
@@ -276,7 +280,7 @@ function answerBody(q, sendAnswer) {
     const labels = q.type === 'truefalse' ? [t('ed.true'), t('ed.false')] : q.labels;
     body = h('div', { class: 'pgrid n' + labels.length },
       labels.map((label, i) => h('button', {
-        class: 'pbtn', style: { background: COLORS[colorIndex(q.type, i)] },
+        class: 'pbtn', style: { '--c': COLORS[colorIndex(q.type, i)] },
         onclick: () => sendAnswer(i),
       }, h('span', { class: 'shape' }, svg(SHAPES[colorIndex(q.type, i)])), h('span', { class: 'pbtn-text', style: { fontSize: fitSize(label) } }, label))));
   } else if (q.type === 'short') {
@@ -312,7 +316,7 @@ function answerBody(q, sendAnswer) {
 function dragList(q, sendAnswer) {
   const order = q.labels.map((_, i) => i); // visningsindekser, øverst først
   const list = h('div', { class: 'drag-list' });
-  const rows = q.labels.map((label, i) => h('div', { class: 'drag-row', style: { background: COLORS[i] } },
+  const rows = q.labels.map((label, i) => h('div', { class: 'drag-row', style: { '--c': COLORS[i] } },
     h('span', { class: 'drag-pos' }),
     h('span', { class: 'drag-text', style: { fontSize: fitSize(label) } }, label),
     h('span', { class: 'drag-handle', 'aria-hidden': 'true' }, svg('<svg viewBox="0 0 20 20" width="22" height="22"><g fill="currentColor"><circle cx="7" cy="5" r="1.6"/><circle cx="13" cy="5" r="1.6"/><circle cx="7" cy="10" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="13" cy="15" r="1.6"/></g></svg>'))));
@@ -384,31 +388,42 @@ function fitSize(text) {
   return Math.min(byLength, byWord) + 'rem';
 }
 
+// Forklaringen etter et svar (vises bare når læreren har skrevet noe).
+export function explanationPanel(exp) {
+  exp = (exp || '').trim();
+  if (!exp) return null;
+  return h('div', { class: 'exp-panel' },
+    h('b', null, svg('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5V5.5"/></svg>'), t('play.explanation')),
+    h('p', null, exp));
+}
+
+// Riktig/feil etter et svar: hvit skjerm med et bånd øverst, høydemeter og forklaringen.
+// ok: true/false, eller null for spørsmål uten fasit. Brukes også i hjemmelekse.
+export function resultCard({ ok, answered = true, pts = 0, streak = 0, correct = '', climb = 0, rank = null, hasExp = false }) {
+  if (ok === null) return h('div', { class: 'result neutral' }, h('h1', null, answered ? t('play.thanks') : t('play.lookScreen')));
+  return h('div', { class: 'result ' + (ok ? 'good' : 'bad') + (hasExp ? ' compact' : '') },
+    h('span', { class: 'ribbon' + (ok ? '' : ' slate') }, ok ? t('play.correct') : answered ? t('play.wrong') : t('play.noAnswer')),
+    ok && pts ? h('div', { class: 'result-gain' }, t('play.points', { n: pts }), h('small', null, t('play.altitude'))) : null,
+    !ok && correct ? h('p', { class: 'result-correct' }, t('play.correctWas'), ' ', h('b', null, correct)) : null,
+    (ok && streak > 1) || climb ? h('div', { class: 'result-chips' },
+      ok && streak > 1 ? h('span', null, t('play.streak', { n: streak }) + (streak >= 5 ? '!' : '')) : null,
+      climb ? h('span', null, t('play.climb', { n: climb })) : null) : null,
+    rank ? h('p', { class: 'result-rank' }, rank) : null);
+}
+
 function resultView(st) {
   const r = st.results?.[S.id];
   const scored = st.q && st.q.scored;
-  const exp = (st.q?.explanation || '').trim();
-  // Forklaringsboksen vises bare når læreren har skrevet noe.
-  const expBox = exp ? h('div', { class: 'exp-panel' },
-    h('b', null, svg('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5V5.5"/></svg>'), t('play.explanation')),
-    h('p', null, exp)) : null;
+  const expBox = explanationPanel(st.q?.explanation);
   S.view = () => resultView(st);
   if (!r || !scored) {
     if (!expBox) return message(() => (r?.answered ? t('play.thanks') : t('play.lookScreen')), null, { icon: h('div', { class: 'big-mark' }, questionSvg(90)), react: true });
-    return frame(h('div', { class: 'result-stack' },
-      h('div', { class: 'result neutral' }, h('h1', null, r?.answered ? t('play.thanks') : t('play.lookScreen'))), expBox), { bar: true, cls: 'full', react: true });
+    return frame(h('div', { class: 'result-stack with-exp' }, resultCard({ ok: null, answered: r?.answered }), expBox), { bar: true, cls: 'full', react: true });
   }
-  const cls = r.ok ? 'good' : 'bad';
   const correctText = st.q.tf !== undefined ? (st.q.tf ? t('ed.true') : t('ed.false')) : st.q.correct;
   frame(h('div', { class: 'result-stack' + (expBox ? ' with-exp' : '') },
-    h('div', { class: 'result ' + cls },
-      h('div', { class: 'result-icon' }, r.ok ? '✓' : '✕'),
-      h('h1', null, r.ok ? t('play.correct') : r.answered ? t('play.wrong') : t('play.noAnswer')),
-      r.ok && r.pts ? h('div', { class: 'result-pts' }, t('play.points', { n: r.pts })) : null,
-      r.ok && r.streak > 1 ? h('div', { class: 'result-streak' }, t('play.streak', { n: r.streak })) : null,
-      !r.ok && correctText ? h('p', { class: 'result-correct' }, t('play.correctWas'), ' ', h('b', null, correctText)) : null,
-      r.climb ? h('div', { class: 'result-climb' }, t('play.climb', { n: r.climb })) : null,
-      h('p', { class: 'result-rank' }, t('play.place', { n: r.rank }), r.tr ? ' · ' + t('play.teamPlace', { n: r.tr }) : '')),
+    resultCard({ ok: r.ok, answered: r.answered, pts: r.pts, streak: r.streak, correct: correctText, climb: r.climb, hasExp: !!expBox,
+      rank: t('play.place', { n: r.rank }) + (r.tr ? ' · ' + t('play.teamPlace', { n: r.tr }) : '') }),
     expBox), { bar: true, cls: 'full', react: true });
 }
 
@@ -434,6 +449,6 @@ function finalView(st) {
 
 // Start
 if (backend.mode === 'demo') { document.body.classList.add('is-demo'); document.body.append(h('div', { class: 'demo-banner' }, t('demo.banner'))); }
-if (qs('lekse')) import('./homework.js').then(m => m.startHomework(qs('lekse'), { frame, answerBody, setView: fn => { S.view = fn; } }));
+if (qs('lekse')) import('./homework.js').then(m => m.startHomework(qs('lekse'), { frame, answerBody, resultCard, explanationPanel, setView: fn => { S.view = fn; } }));
 else if (S.pin && S.name && S.id) connect();
 else joinView();
