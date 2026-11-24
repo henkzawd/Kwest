@@ -88,6 +88,13 @@ function supabaseBackend() {
     async deleteFeedback(id) { ok(await client.from('feedback').delete().eq('id', id)); },
     async updateProfile(id, patch) { ok(await client.from('profiles').update(patch).eq('id', id)); },
 
+    // Kobling til Claude: læreren godkjenner (eller avviser) at Claude får bruke kontoen.
+    async oauthDetails(authorizationId) { return ok(await client.auth.oauth.getAuthorizationDetails(authorizationId)); },
+    async oauthDecide(authorizationId, approve) {
+      const fn = approve ? client.auth.oauth.approveAuthorization : client.auth.oauth.denyAuthorization;
+      return ok(await fn.call(client.auth.oauth, authorizationId, { skipBrowserRedirect: true }));
+    },
+
     // Hjemmelekse
     async createAssignment(a) {
       return ok(await client.from('assignments').insert({ code: uid(8), quiz_id: a.quiz_id, title: a.title, data: a.data }).select('*').single());
