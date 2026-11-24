@@ -59,11 +59,9 @@ Andre funksjoner: lyd på spørsmål og infosider (lenke eller opplastet .mp3/.w
 
 ## Lage Kwest med AI (fra PowerPoint, PDF, artikler)
 
-1. Trykk **Lag med AI** på lærersiden og velg antall spørsmål.
-2. Trykk **Kopier instruks**, åpne Claude (claude.ai), last opp filen din og lim inn instruksen.
-3. Kopier hele svaret fra Claude, lim det inn i Kwest og trykk **Importer**.
+**Anbefalt: koble Claude til Kwest.** Hver lærer kobler Claude-kontoen sin til Kwest-kontoen én gang (fremgangsmåten står under **Lag med AI** i Kwest Studio og på https://kwestlog.vercel.app/koble). Etterpå laster du bare opp filen i Claude og skriver for eksempel «Lag et kwest med 10 spørsmål av denne». Kwestet lagres rett i Kwest Studio. Claude kan også finne, endre og utvide kwestene dine, men kan ikke slette dem eller se elevenes svar.
 
-Du kan også gi filene direkte til Claude Code i en økt her, så lager Claude en ferdig fil du kan importere.
+**Uten kobling:** Trykk **Lag med AI** → **Uten kobling: kopier og lim inn**. Kopier instruksen, lim den inn i Claude sammen med filen, og lim svaret tilbake i Kwest.
 
 ## Prøve uten database
 

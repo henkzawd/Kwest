@@ -5,6 +5,7 @@ import { backend } from './backend.js';
 import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, DISCUSS_TYPES, SCORED, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz } from './game.js';
 import { feedbackDialog } from './feedback.js';
 import { icon } from './icons.js';
+import { connectSteps } from './connect.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
 
 setFavicon();
@@ -436,6 +437,12 @@ function aiDialog() {
   const msg = h('p', { class: 'form-error' });
   let m;
   m = modal(t('ai.title'), h('div', { class: 'stack' },
+    h('div', { class: 'ai-connect' },
+      h('h3', null, t('ai.connectTitle')),
+      h('p', null, t('ai.connectText')),
+      connectSteps(),
+      h('p', { class: 'connect-example' }, t('conn.example'))),
+    h('details', { class: 'ai-manual' }, h('summary', null, t('ai.manual')), h('div', { class: 'stack' },
     h('p', null, h('b', null, t('ai.step1'))),
     h('div', { class: 'row' }, h('label', { class: 'field' }, h('span', null, t('ai.count')), count), h('label', { class: 'field grow' }, h('span', null, t('ai.extra')), extra)),
     h('div', { class: 'row' },
@@ -443,12 +450,11 @@ function aiDialog() {
       h('a', { class: 'btn ghost', href: 'https://claude.ai/new', target: '_blank', rel: 'noopener' }, t('ai.open') + ' ↗')),
     h('p', null, h('b', null, t('ai.step2'))),
     h('p', null, h('b', null, t('ai.step3'))),
-    ta, msg), [
-    h('button', { class: 'btn primary', onclick: async () => {
+    ta, msg,
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: async () => {
       msg.textContent = '';
       try { await importText(ta.value); m.close(); } catch { msg.textContent = t('imp.bad'); }
-    } }, t('imp.go')),
-  ]);
+    } }, t('imp.go')))))));
 }
 
 // ---------- Redigering ----------

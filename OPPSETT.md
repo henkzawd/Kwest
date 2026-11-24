@@ -63,6 +63,23 @@ Claude legger verdiene inn i Kwest og publiserer på nytt.
 2. Trykk **Lag konto** og lag kontoen din. **Den første kontoen blir automatisk administrator.**
 3. Inviter kolleger: gå til fanen **Brukere**, kopier lenken og send den til dem. Når de har laget konto, huker du av **Godkjent** ved navnet deres.
 
+## Del 4 – Slå på koblingen til Claude (én gang)
+
+Dette gjør at lærerne kan logge inn med Kwest-kontoen sin fra Claude, slik at Claude kan lage kwest rett i Kwest.
+
+1. Gå til prosjektet ditt på https://supabase.com.
+2. Trykk **Authentication** i menyen til venstre → **OAuth Server**.
+3. Slå på bryteren som skrur på OAuth-serveren.
+4. I feltet **Authorization Path** skriver du: `/koble`
+5. Slå på **dynamisk klientregistrering** (bryteren har «Dynamic» i navnet). Den lar Claude registrere seg selv.
+6. Trykk **Save**.
+
+Ikke endre **Site URL**. Den skal fortsatt være `https://kwestlog.vercel.app/studio`.
+
+Etterpå kobler hver lærer til selv. Fremgangsmåten står i Kwest Studio under **Lag med AI**, og på https://kwestlog.vercel.app/koble.
+
+Får du en feilmelding fra Claude når du trykker **Tillat**, så si fra til Claude her og lim inn feilmeldingen.
+
 ## Godt å vite
 
 - **Glemt passord:** Supabase sin gratis e-post sender bare til deg selv. Glemmer en kollega passordet, kan du slette brukeren i Supabase (**Authentication** → **Users** → de tre prikkene → *Delete user*), og så lager kollegaen ny konto. Kwestene deres blir liggende (uten navn på). Vil dere ha ordentlig «glemt passord»-e-post, kan Claude hjelpe med å koble til en e-posttjeneste senere.

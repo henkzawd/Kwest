@@ -76,6 +76,7 @@ try {
   // AI-dialogen
   await teacher.getByRole('button', { name: /Lag med AI/ }).click();
   await shot(teacher, '04-ai');
+  await teacher.getByText('Uten kobling: kopier og lim inn').click();
   await teacher.locator('.modal textarea').fill('Her er quizen din:\n```json\n' + quizJson + '\n```');
   await teacher.locator('.modal').getByRole('button', { name: 'Importer' }).click();
   await teacher.locator('.title-input').waitFor();

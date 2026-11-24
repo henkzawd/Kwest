@@ -1,3 +1,11 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/mcp", "destination": "/api/mcp" },
+    { "source": "/studio/koble", "destination": "/koble.html" },
+    { "source": "/.well-known/oauth-protected-resource", "destination": "/api/mcp?wk=prm" },
+    { "source": "/.well-known/oauth-protected-resource/:path*", "destination": "/api/mcp?wk=prm" },
+    { "source": "/.well-known/oauth-authorization-server", "destination": "/api/mcp?wk=as" },
+    { "source": "/.well-known/oauth-authorization-server/:path*", "destination": "/api/mcp?wk=as" }
+  ]
 }
