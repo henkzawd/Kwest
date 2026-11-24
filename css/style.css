@@ -515,7 +515,7 @@ select { cursor: pointer; }
 .scene-title { position: absolute; top: 4%; left: 0; right: 0; text-align: center; color: #FFF4DC; font-size: clamp(1.6rem, 3.4vw, 2.8rem); text-shadow: 0 2px 12px rgba(27, 26, 71, .6); margin: 0; }
 .summit { position: absolute; transform: translate(-6px, -100%); display: flex; flex-direction: column; align-items: flex-start; animation: summit-in .7s ease-out both; pointer-events: none; }
 @keyframes summit-in { from { opacity: 0; transform: translate(-6px, calc(-100% + 16px)); } }
-.summit-flag { display: block; margin-left: -10px; filter: drop-shadow(0 2px 3px rgba(27, 16, 48, .35)); }
+.summit-flag { display: block; margin-left: -1.5px; filter: drop-shadow(0 2px 3px rgba(27, 16, 48, .35)); }
 .summit-name, .summit-score { background: rgba(255, 252, 244, .94); color: var(--ink); border-radius: 10px; padding: 4px 12px; box-shadow: 0 4px 14px rgba(27, 16, 48, .25); white-space: nowrap; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
 .summit-name { font-family: var(--display); font-size: clamp(1.1rem, 2.2vw, 2rem); }
 .summit-score { font-weight: 700; font-size: clamp(.8rem, 1.2vw, 1.05rem); color: var(--muted); margin: 4px 0 6px; }
