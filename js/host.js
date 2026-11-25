@@ -4,7 +4,7 @@ import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints } from './game.js';
 import { icon } from './icons.js';
-import { wordmark, exclamationSvg, questionSvg, setFavicon } from './logo.js';
+import { wordmark, exclamationSvg, questionSvg, setFavicon, peakPennant } from './logo.js';
 import { hikerSvg, hash } from './hikers.js';
 
 setFavicon();
@@ -570,13 +570,15 @@ function renderLobbyInto(main) {
   const scene = h('section', { class: 'trailhead' }, lobbyScene(),
     h('h1', { class: 'scene-title day th-title' }, quiz.title),
     h('div', { class: 'th-sign' },
-      TEST ? h('div', { class: 'th-board test' }, h('small', null, '🧪 ' + t('test.title')), h('p', null, t('test.text')))
-        : [h('div', { class: 'th-board' },
+      h('div', { class: 'th-post' }),
+      h('div', { class: 'th-arrow' + (TEST ? ' test' : '') }, svg(woodSvg('arrow', 400, 180, 7)),
+        TEST ? h('div', { class: 'th-text' }, h('small', null, '🧪 ' + t('test.title')), h('p', null, t('test.text')))
+          : h('div', { class: 'th-text' },
             h('small', null, t('host.pin')),
             h('strong', { class: 'th-pin' }, G.pin.slice(0, 3) + ' ' + G.pin.slice(3)),
-            h('span', null, t('host.joinAt'), ' ', h('b', null, joinHost()))),
-          h('div', { class: 'th-board th-qr', title: t('host.orScan') }, qrSvg(joinUrl()))],
-      h('div', { class: 'th-pole' })),
+            h('span', null, t('host.joinAt'), ' ', h('b', null, joinHost())))),
+      TEST ? null : h('div', { class: 'th-qrboard th-qr', title: t('host.orScan') }, svg(woodSvg('board', 200, 210, 3)),
+        h('div', { class: 'th-paper' }, qrSvg(joinUrl())))),
     walkers(ids),
     !ids.length ? h('p', { class: 'th-waiting' }, h('span', { class: 'spinner small' }), t('host.waiting')) : null);
   put(main, scene,
@@ -617,6 +619,46 @@ function walkers(ids) {
   });
 }
 
+// Et værbitt treskilt: pil (peker mot fjellet) eller firkantet plate, med årer, kvister, en sprekk og spiker.
+// Tegningen er den samme hver gang (fast «tilfeldighet» ut fra seed).
+function woodSvg(shape, W, H, seed) {
+  let x = seed * 9973 + 1;
+  const rnd = () => (x = (x * 16807) % 2147483647) / 2147483647;
+  const id = 'wood-' + shape;
+  const outline = shape === 'arrow'
+    ? `M9 8 L${W - 62} 5 L${W - 8} ${H / 2 - 2} L${W - 60} ${H - 5} L11 ${H - 9} Q4 ${H / 2} 9 8 Z`
+    : `M8 10 L${W - 9} 6 L${W - 6} ${H - 9} L10 ${H - 6} Q5 ${H / 2} 8 10 Z`;
+  let grain = '';
+  for (let i = 0; i < 16; i++) {
+    const y = 6 + rnd() * (H - 12), a = (rnd() - 0.5) * 10, b = (rnd() - 0.5) * 8;
+    grain += `<path d="M0 ${y} C ${W * 0.25} ${y + a}, ${W * 0.5} ${y - a}, ${W * 0.75} ${y + b} S ${W} ${y - b} ${W + 10} ${y}" stroke="#5A3A1A" stroke-opacity="${(0.12 + rnd() * 0.22).toFixed(2)}" stroke-width="${(0.8 + rnd() * 1.6).toFixed(1)}" fill="none"/>`;
+  }
+  let knots = '';
+  for (let i = 0; i < 2; i++) {
+    const kx = W * (0.2 + rnd() * 0.55), ky = H * (0.2 + rnd() * 0.6);
+    knots += `<ellipse cx="${kx}" cy="${ky}" rx="${10 + rnd() * 6}" ry="${4 + rnd() * 2}" fill="#6B4423" opacity=".45"/><ellipse cx="${kx}" cy="${ky}" rx="${17 + rnd() * 6}" ry="${7 + rnd() * 2}" fill="none" stroke="#5A3A1A" stroke-opacity=".25" stroke-width="1.2"/>`;
+  }
+  const seams = shape === 'arrow' ? [H / 2 + 1] : [H / 3, (2 * H) / 3];
+  const nails = shape === 'arrow' ? [[30, H * 0.27], [30, H * 0.73]] : [[22, 22], [W - 22, 20], [22, H - 22], [W - 22, H - 21]];
+  const nail = ([nx, ny]) => `<ellipse cx="${nx + 1}" cy="${ny + 6}" rx="3.5" ry="6" fill="#7A3E1A" opacity=".3"/><circle cx="${nx}" cy="${ny}" r="5.2" fill="#3D3530"/><circle cx="${nx - 1.6}" cy="${ny - 1.6}" r="1.7" fill="#A39A90"/>`;
+  return `<svg class="wood" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="${id}-g" x1="0" y1="0" x2="0.15" y2="1"><stop offset="0" stop-color="#C9A06A"/><stop offset=".45" stop-color="#B08250"/><stop offset="1" stop-color="#8C6236"/></linearGradient>
+      <clipPath id="${id}-c"><path d="${outline}"/></clipPath>
+    </defs>
+    <path d="${outline}" fill="url(#${id}-g)"/>
+    <g clip-path="url(#${id}-c)">
+      ${grain}${knots}
+      <rect x="${W * 0.55}" y="0" width="${W * 0.3}" height="${H}" fill="#fff" opacity=".07"/>
+      ${seams.map(y => `<path d="M0 ${y} L${W} ${y - 2}" stroke="#4A2F14" stroke-opacity=".6" stroke-width="3"/><path d="M0 ${y + 2.5} L${W} ${y + 0.5}" stroke="#F3DDB5" stroke-opacity=".25" stroke-width="1.5"/>`).join('')}
+      <path d="M${W * 0.62} ${H - 8} l6 -14 l-4 -9 l7 -12" stroke="#3E2A14" stroke-opacity=".55" stroke-width="1.6" fill="none"/>
+    </g>
+    <path d="${outline}" fill="none" stroke="#4A2F14" stroke-width="5" stroke-linejoin="round"/>
+    <path d="${outline}" fill="none" stroke="#E9CFA0" stroke-opacity=".35" stroke-width="1.5" stroke-linejoin="round" transform="translate(0 2)"/>
+    ${nails.map(nail).join('')}
+  </svg>`;
+}
+
 function lobbyScene() {
   return svg(`<svg class="scene" viewBox="0 0 1600 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
     <defs>
@@ -635,12 +677,11 @@ function lobbyScene() {
     <polygon points="600,440 780,320 850,345 980,190 1080,110 1170,190 1260,250 1380,330 1520,410 1600,440 1600,700 600,700" fill="url(#lmtn)"/>
     <polygon points="1080,110 1170,190 1260,250 1380,330 1520,410 1600,440 1600,700 1100,700 1095,380" fill="#3E4C66" opacity=".22"/>
     <polygon points="1080,110 1040,150 1058,158 1072,144 1086,162 1104,146 1130,160" fill="#fff" opacity=".9"/>
-    <line x1="1080" y1="114" x2="1080" y2="70" stroke="#2A1D05" stroke-width="3"/>
-    <path d="M1081 72 h34 l-8 9 l8 9 h-34z" fill="#FFB424" stroke="#2A1D05" stroke-width="2" stroke-linejoin="round"/>
     <path d="M0 420 C 260 380, 520 410, 800 392 S 1300 370, 1600 400 V700 H0Z" fill="url(#lmead)"/>
     <path d="M0 600 C 300 560, 700 600, 1000 580 S 1400 560, 1600 590 V700 H0Z" fill="#9CCB80" opacity=".55"/>
     <path d="M60 700 C 300 650, 520 610, 640 530 S 780 420, 900 380 S 1000 300, 1030 230 S 1065 150, 1080 116" fill="none" stroke="#F3E2B8" stroke-width="16" stroke-linecap="round" opacity=".9"/>
     <path d="M60 700 C 300 650, 520 610, 640 530 S 780 420, 900 380 S 1000 300, 1030 230 S 1065 150, 1080 116" fill="none" stroke="#C9A86A" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round"/>
+    ${peakPennant(1080, 113, 0.62, 'lmq')}
     <g fill="#4F8A47" opacity=".9"><path d="M1500 430 l16 -46 l16 46z"/><path d="M1536 440 l13 -38 l13 38z"/><path d="M560 430 l13 -38 l13 38z"/></g>
   </svg>`);
 }
@@ -671,10 +712,10 @@ function renderIntro(main) {
 // En stiplet sti som tegnes frem til flagget mens spørsmålet vises.
 function introTrail() {
   const d = 'M12 34 C 120 8, 220 40, 320 22 S 500 10, 566 26';
-  return svg(`<svg class="intro-trail" viewBox="0 0 600 48" aria-hidden="true">
+  return svg(`<svg class="intro-trail" viewBox="0 -4 600 52" aria-hidden="true">
     <path d="${d}" fill="none" stroke="#E7E4DA" stroke-width="7" stroke-linecap="round"/>
     <path class="intro-trail-draw" d="${d}" pathLength="1" fill="none" stroke="#FFB424" stroke-width="7" stroke-linecap="round" style="animation-duration:${INTRO_MS}ms"/>
-    <line x1="568" y1="28" x2="568" y2="2" stroke="#2A1D05" stroke-width="2.5"/><path d="M569 3 h22 l-5 6 l5 6 h-22z" fill="#FFB424" stroke="#2A1D05" stroke-width="1.5" stroke-linejoin="round"/>
+    ${peakPennant(567, 30, 0.27, 'iq')}
   </svg>`);
 }
 
@@ -904,8 +945,7 @@ function trailScene() {
     <g fill="#3F7A3E" opacity=".9"><path d="M170 640 l14 -40 l14 40z"/><path d="M200 650 l12 -34 l12 34z"/><path d="M1440 610 l14 -40 l14 40z"/><path d="M1470 620 l12 -34 l12 34z"/></g>
     <path class="trail-path" d="${TRAIL}" fill="none" stroke="#F3E2B8" stroke-width="16" stroke-linecap="round" opacity=".9"/>
     <path d="${TRAIL}" fill="none" stroke="#C9A86A" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round"/>
-    <line x1="1268" y1="140" x2="1268" y2="96" stroke="#2A1D05" stroke-width="3"/>
-    <path d="M1269 98 h34 l-8 9 l8 9 h-34z" fill="#FFB424" stroke="#2A1D05" stroke-width="2" stroke-linejoin="round"/>
+    ${peakPennant(1268, 139, 0.62, 'tq')}
   </svg>`);
 }
 
@@ -1041,7 +1081,7 @@ function renderPodium(main) {
     return h('div', { class: 'summit s' + pk.place, style: { left: (pk.x / 16) + '%', top: (peakY(pk.y) / 7) + '%', animationDelay: (RISE[pk.place] + 0.9) + 's' } },
       h('div', { class: 'summit-name' }, p.name),
       h('div', { class: 'summit-score' }, t('play.score', { n: p.score })),
-      svg('<svg class="summit-flag" width="34" height="40" viewBox="0 0 34 40"><line x1="3" y1="2" x2="3" y2="40" stroke="#2A1D05" stroke-width="2.5"/><path d="M4 3 H30 L24 10 L30 17 H4 Z" fill="#FFB424" stroke="#2A1D05" stroke-width="1.6" stroke-linejoin="round"/></svg>'));
+      svg(`<svg class="summit-flag" width="34" height="51" viewBox="-4 -106 72 108" aria-hidden="true">${peakPennant(0, 0, 1, 'sq' + pk.place)}</svg>`));
   });
   put(main,
     h('div', { class: 'podium-scene' },
