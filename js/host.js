@@ -4,7 +4,7 @@ import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints } from './game.js';
 import { icon } from './icons.js';
-import { wordmark, exclamationSvg, questionSvg, setFavicon, peakMark } from './logo.js';
+import { wordmark, exclamationSvg, questionSvg, setFavicon, peakPennant } from './logo.js';
 import { hikerSvg, hash } from './hikers.js';
 
 setFavicon();
@@ -681,7 +681,7 @@ function lobbyScene() {
     <path d="M0 600 C 300 560, 700 600, 1000 580 S 1400 560, 1600 590 V700 H0Z" fill="#9CCB80" opacity=".55"/>
     <path d="M60 700 C 300 650, 520 610, 640 530 S 780 420, 900 380 S 1000 300, 1030 230 S 1065 150, 1080 116" fill="none" stroke="#F3E2B8" stroke-width="16" stroke-linecap="round" opacity=".9"/>
     <path d="M60 700 C 300 650, 520 610, 640 530 S 780 420, 900 380 S 1000 300, 1030 230 S 1065 150, 1080 116" fill="none" stroke="#C9A86A" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round"/>
-    ${peakMark(1080, 112, 30, 'lmq')}
+    ${peakPennant(1080, 113, 0.62, 'lmq')}
     <g fill="#4F8A47" opacity=".9"><path d="M1500 430 l16 -46 l16 46z"/><path d="M1536 440 l13 -38 l13 38z"/><path d="M560 430 l13 -38 l13 38z"/></g>
   </svg>`);
 }
@@ -715,7 +715,7 @@ function introTrail() {
   return svg(`<svg class="intro-trail" viewBox="0 -4 600 52" aria-hidden="true">
     <path d="${d}" fill="none" stroke="#E7E4DA" stroke-width="7" stroke-linecap="round"/>
     <path class="intro-trail-draw" d="${d}" pathLength="1" fill="none" stroke="#FFB424" stroke-width="7" stroke-linecap="round" style="animation-duration:${INTRO_MS}ms"/>
-    ${peakMark(570, 30, 16, 'iq')}
+    ${peakPennant(567, 30, 0.27, 'iq')}
   </svg>`);
 }
 
@@ -945,7 +945,7 @@ function trailScene() {
     <g fill="#3F7A3E" opacity=".9"><path d="M170 640 l14 -40 l14 40z"/><path d="M200 650 l12 -34 l12 34z"/><path d="M1440 610 l14 -40 l14 40z"/><path d="M1470 620 l12 -34 l12 34z"/></g>
     <path class="trail-path" d="${TRAIL}" fill="none" stroke="#F3E2B8" stroke-width="16" stroke-linecap="round" opacity=".9"/>
     <path d="${TRAIL}" fill="none" stroke="#C9A86A" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round"/>
-    ${peakMark(1268, 138, 32, 'tq')}
+    ${peakPennant(1268, 139, 0.62, 'tq')}
   </svg>`);
 }
 
@@ -1081,7 +1081,7 @@ function renderPodium(main) {
     return h('div', { class: 'summit s' + pk.place, style: { left: (pk.x / 16) + '%', top: (peakY(pk.y) / 7) + '%', animationDelay: (RISE[pk.place] + 0.9) + 's' } },
       h('div', { class: 'summit-name' }, p.name),
       h('div', { class: 'summit-score' }, t('play.score', { n: p.score })),
-      svg(`<svg class="summit-flag" width="15" height="22" viewBox="0 0 64 96" aria-hidden="true">${peakMark(32, 96, 96, 'sq' + pk.place)}</svg>`));
+      svg(`<svg class="summit-flag" width="34" height="51" viewBox="-4 -106 72 108" aria-hidden="true">${peakPennant(0, 0, 1, 'sq' + pk.place)}</svg>`));
   });
   put(main,
     h('div', { class: 'podium-scene' },
