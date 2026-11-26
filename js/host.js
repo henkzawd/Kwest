@@ -6,6 +6,7 @@ import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIn
 import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon, peakPennant } from './logo.js';
 import { hikerSvg, hash } from './hikers.js';
+import { sound } from './music.js';
 
 setFavicon();
 const app = document.getElementById('app');
@@ -23,6 +24,7 @@ let rosterTimer = null;
 let allInTimer = null;
 const rosterQueue = {};
 let tick = null;
+let lastTick = 0; // sist spilte nedtellingslyd (sekunder igjen)
 let introTimer = null;
 const shownChips = new Set();
 
@@ -125,7 +127,7 @@ function onJoin(p) {
   if (G.teams) G.teamOf[id] = smallestTeam();
   reply(id, { ok: true, score: 0 });
   persist();
-  if (G.phase === 'lobby') renderLobby(); else updateCount();
+  if (G.phase === 'lobby') { sound.sfx('join'); renderLobby(); } else updateCount();
 }
 
 // Alt som går fra storskjermen til mobilene samles i én melding, maks omtrent én gang i sekundet.
@@ -345,6 +347,7 @@ function startQuestion() {
   G.qStart = Date.now();
   G.phase = 'question';
   commit(false); // ingen ny melding – mobilene vet allerede når spørsmålet starter
+  sound.sfx('go');
   startTicker();
   if (TEST) botsAnswer();
 }
@@ -383,8 +386,13 @@ function botReact() {
 
 function startTicker() {
   clearInterval(tick);
+  lastTick = 0;
   tick = setInterval(() => {
     const left = G.qStart + q().time * 1000 - Date.now();
+    // Musikken går fortere når tiden renner ut, og de siste sekundene tikker.
+    sound.tension(1 - Math.max(0, left) / Math.max(1, q().time * 1000));
+    const secs = Math.ceil(left / 1000);
+    if (secs >= 1 && secs <= 5 && secs !== lastTick && q().time > 5) { lastTick = secs; sound.sfx('tick', { last: secs === 1 }); }
     const el = document.querySelector('.sun');
     if (el) el.textContent = Math.max(0, Math.ceil(left / 1000));
     const sky = document.querySelector('.sunset');
@@ -401,6 +409,7 @@ function toDiscuss() {
   Object.values(G.answers).forEach(a => { if (G.first[a.value] !== undefined) G.first[a.value]++; });
   G.firstN = Object.keys(G.answers).length;
   G.phase = 'discuss';
+  sound.sfx('reveal');
   commit();
 }
 
@@ -461,6 +470,7 @@ function reveal() {
     }
   }
   G.phase = 'reveal';
+  sound.sfx('reveal');
   commit();
 }
 
@@ -536,6 +546,7 @@ function topbar() {
     h('span', { class: 'hbar-count' }, icon('user'), h('span', { class: 'hbar-n' }, playerIds().length)),
     h('button', { class: 'btn ghost small react-toggle' + (G.reactions ? ' on' : ''), title: t('host.reactionsHelp'), 'aria-pressed': String(G.reactions), onclick: toggleReactions },
       REACTIONS.g + ' ' + (G.reactions ? t('host.reactionsOn') : t('host.reactionsOff'))),
+    sound.controls(),
     langButton(render),
     h('button', { class: 'icon-btn', title: t('host.fullscreen'), 'aria-label': t('host.fullscreen'), onclick: toggleFullscreen }, icon('expand')),
     h('button', { class: 'btn ghost small', onclick: endGame }, t('host.end')));
@@ -546,6 +557,9 @@ function toggleFullscreen() {
   else document.documentElement.requestFullscreen?.().catch(() => {});
 }
 
+// Hvilken musikk som hører til hver skjerm.
+const MUSIC = { lobby: 'lobby', intro: 'question', question: 'question', reveal: 'calm', discuss: 'calm', info: 'calm', scoreboard: 'scoreboard', podium: 'podium' };
+
 function render() {
   if (!quiz) return;
   app.querySelectorAll('audio').forEach(a => a.pause());
@@ -553,6 +567,7 @@ function render() {
   app.append(topbar());
   const main = h('main', { class: 'hmain phase-' + G.phase });
   app.append(main);
+  sound.scene(MUSIC[G.phase], G.phase === 'intro' ? { pre: true, p: 0 } : G.phase === 'question' ? { pre: false } : {});
   ({ lobby: renderLobbyInto, intro: renderIntro, question: renderQuestion, info: renderInfo, reveal: renderReveal, discuss: renderDiscuss, scoreboard: renderScoreboard, podium: renderPodium })[G.phase](main);
 }
 
