@@ -162,6 +162,38 @@ export function createEngine(ac, { cleanup = true, soundtrack = 'whiteTiger' } =
     [-6, 0, 6].forEach(c => { const x = osc('sawtooth', fq, t, end); x.detune.value = c; depth.connect(x.detune); x.connect(lp); });
     lp.connect(hp); hp.connect(a); a.connect(g);
   };
+  // Myke strykere (startskjerm, rolige skjermer og pallen): mykere klangfarge, mørkere filter, «kropp»,
+  // og hver stemme har sin egen lille vibrato og stemming – mer som en seksjon av ekte musikere enn en synth.
+  const BOWED = wave([0, ...Array.from({ length: 20 }, (_, i) => 1 / (i + 1) ** 1.7)]);
+  const body = cut => { // strykerkropp: litt varme i mellomtonen, ingen skarp topp
+    const lp = filter('lowpass', cut, 0.3), pk = filter('peaking', 420, 1); pk.gain.value = 3;
+    const sh = filter('highshelf', 2600); sh.gain.value = -8;
+    lp.connect(pk); pk.connect(sh);
+    return [lp, sh];
+  };
+  const bowVoice = (fq, t, end, dest, cents, vib) => {
+    const x = osc(BOWED, fq, t, end); x.detune.value = cents;
+    const l = osc('sine', 4.6 + rnd() * 1.4, t + rnd() * 0.2, end), d = gain(0);
+    d.gain.setValueAtTime(0, t); d.gain.linearRampToValueAtTime(vib, t + 0.6 + rnd() * 0.4);
+    l.connect(d); d.connect(x.detune); x.connect(dest);
+  };
+  E.warmStrings = (o, t, freqs, dur, vel = 0.15, att = 0.8) => {
+    const rel = t + Math.max(dur, att), end = rel + 2.5;
+    const g = out(o, 0.075, 0.75), [inp, outp] = body(1400), a = gain(0);
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(vel, t + att); a.gain.setTargetAtTime(0, rel, 0.45);
+    freqs.forEach(fq => [-11, -3, 7].forEach(c => bowVoice(fq, t, end, inp, c + (rnd() - 0.5) * 4, 5 + rnd() * 4)));
+    outp.connect(a); a.connect(g);
+  };
+  E.warmViolin = (o, t, fq, dur, vel = 0.4) => {
+    const att = Math.min(0.22, dur * 0.5), rel = t + Math.max(att, dur), end = rel + 1.4;
+    const g = out(o, 0.13, 0.65), [inp, outp] = body(Math.min(fq * 3.2, 3200)), a = gain(0);
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(vel, t + att); a.gain.linearRampToValueAtTime(vel * 0.8, rel); a.gain.setTargetAtTime(0, rel, 0.22);
+    const l = osc('sine', 5.2 + rnd() * 0.5, t, end), d = gain(0), vs = t + Math.min(0.3, dur * 0.4);
+    d.gain.setValueAtTime(0, vs); d.gain.linearRampToValueAtTime(14, vs + 0.5);
+    l.connect(d);
+    [-4, 4].forEach(c => { const x = osc(BOWED, fq, t, end); x.detune.value = c; d.connect(x.detune); x.connect(inp); });
+    outp.connect(a); a.connect(g);
+  };
   // Pauker.
   E.timpani = (o, t, fq, vel = 0.4) => {
     const g = out(o, 0.5, 0.3);
@@ -415,6 +447,7 @@ function jotunheimen(E) {
     return pos;
   };
   const violin = (o, t, fq, d, v) => E.violin(o, t, fq, d, v);
+  const warm = (o, t, fq, d, v) => E.warmViolin(o, t, fq, d, v);
   const horn = (o, t, fq, d, v) => E.horn(o, t, fq, d, v);
   const flute = (o, t, fq, d, v) => E.flute(o, t, fq, d, v);
   const harp = (o, t, m, v = 0.24) => E.pluck(o, t, F(m), v, 2.6);
@@ -446,10 +479,10 @@ function jotunheimen(E) {
       setup(s) { s.cycle = 0; },
       step(s, n, t, sd) {
         const k = n % 6, bar = Math.floor(n / 6), c = DAWN_CH[bar < 2 ? 0 : (bar - 2) % 8];
-        if (k === 0) { E.strings(s.out, t, c.map(F), sd * 6, 0.13, 0.8); if (bar % 4 === 0) E.timpani(s.out, t, F(40), 0.22); }
+        if (k === 0) { E.warmStrings(s.out, t, c.map(F), sd * 6, 0.13, 0.9); if (bar % 4 === 0) E.timpani(s.out, t, F(40), 0.22); }
         harp(s.out, t, c[ARP6[k] % c.length] + 12, k === 0 ? 0.26 : 0.18);
         if (bar >= 2 && (bar - 2) % 8 === 0 && k === 0) {
-          const lead = [[violin, 0, 0.42], [horn, -12, 0.3], null, [flute, 12, 0.45], null][s.cycle++ % 5];
+          const lead = [[warm, 0, 0.42], [horn, -12, 0.3], null, [flute, 12, 0.45], null][s.cycle++ % 5];
           if (lead) line(s, n, DAWN, lead[0], lead[2], lead[1]);
         }
       },
@@ -478,7 +511,7 @@ function jotunheimen(E) {
       setup() {},
       step(s, n, t, sd) {
         const k = n % 8, c = ['E3 B3 E4 G#4', 'A2 E3 A3 C#4 E4', 'C#3 G#3 C#4 E4', 'B2 F#3 B3 D#4'].map(ch)[(n >> 4) % 4];
-        if (n % 16 === 0) E.strings(s.out, t, c.map(F), sd * 16, 0.1, 1.5);
+        if (n % 16 === 0) E.warmStrings(s.out, t, c.map(F), sd * 16, 0.1, 1.5);
         if ((k === 3 || k === 6) && rnd() < 0.4) harp(s.out, t, c[1 + Math.floor(rnd() * (c.length - 1))] + 12, 0.16);
       },
     },
@@ -500,25 +533,25 @@ function jotunheimen(E) {
       bpm: () => 84,
       setup(s, t) {
         for (let x = 0.15; x < 2.75; x += 0.06) E.timpani(s.out, t + x, F(38), 0.05 + 0.3 * (x / 2.75) ** 1.5);
-        E.strings(s.out, t, ch('A2 E3 A3 C#4').map(F), 2.8, 0.12, 2.6);
+        E.warmStrings(s.out, t, ch('A2 E3 A3 C#4').map(F), 2.8, 0.12, 2.6);
         s.next = 32; s.cycle = 0;
       },
       step(s, n, t, sd) {
         if (n === 4) line(s, n, seq('A3:1 D4:1 F#4:1 A4:1'), horn, 0.34);
-        if (n === 8) line(s, n, seq('D5:5 C#5:1 B4:1 C#5:1 D5:4 E5:4 F#5:8'), violin, 0.45);
+        if (n === 8) line(s, n, seq('D5:5 C#5:1 B4:1 C#5:1 D5:4 E5:4 F#5:8'), warm, 0.45);
         const fan = { 8: ['D3 A3 D4 F#4 A4', 'D4 F#4 A4', 38, 8], 16: ['G2 D3 B3 G4', 'G3 B3 D4', 0, 4], 20: ['A2 E3 C#4 A4', 'A3 C#4 E4', 33, 4], 24: ['D3 A3 D4 F#4', 'D4 F#4 A4', 38, 8] }[n];
         if (fan) {
-          E.strings(s.out, t, ch(fan[0]).map(F), sd * fan[3], 0.16, 0.05);
+          E.warmStrings(s.out, t, ch(fan[0]).map(F), sd * fan[3], 0.16, 0.12);
           ch(fan[1]).forEach(m => E.horn(s.out, t, F(m), sd * fan[3], 0.24));
           if (fan[2]) E.timpani(s.out, t, F(fan[2]), n === 8 ? 0.7 : 0.5);
           if (n === 8) E.bell(s.out, t, F(86), 0.22, 4);
         }
         if (n < 32) return;
         const k = n % 8, c = HYMN_CH[((n - 32) >> 3) % 8];
-        if (k === 0) { E.strings(s.out, t, c.map(F), sd * 8, 0.12, 0.6); E.timpani(s.out, t, F(c[0] < 43 ? c[0] + 12 : c[0]), 0.22); pizz(s.out, t, c[0], 0.32); }
+        if (k === 0) { E.warmStrings(s.out, t, c.map(F), sd * 8, 0.12, 0.7); E.timpani(s.out, t, F(c[0] < 43 ? c[0] + 12 : c[0]), 0.22); pizz(s.out, t, c[0], 0.32); }
         harp(s.out, t, c[[1, 2, 3, 2, 1, 2, 3, 2][k]] + 12, 0.16);
         if (n === s.next) {
-          if (s.cycle < 2 || s.cycle % 2 === 0) line(s, n, HYMN, s.cycle % 2 ? horn : violin, s.cycle % 2 ? 0.3 : 0.42, s.cycle % 2 ? -12 : 0);
+          if (s.cycle < 2 || s.cycle % 2 === 0) line(s, n, HYMN, s.cycle % 2 ? horn : warm, s.cycle % 2 ? 0.3 : 0.42, s.cycle % 2 ? -12 : 0);
           s.cycle++; s.next += 64;
         }
       },
