@@ -558,7 +558,7 @@ function toggleFullscreen() {
 }
 
 // Hvilken musikk som hører til hver skjerm.
-const MUSIC = { lobby: 'lobby', intro: 'question', question: 'question', reveal: 'calm', discuss: 'calm', info: 'calm', scoreboard: 'scoreboard', podium: 'podium' };
+const MUSIC = { lobby: 'lobby', intro: 'question', question: 'question', reveal: 'end', discuss: 'end', info: 'calm', scoreboard: 'scoreboard', podium: 'podium' };
 
 function render() {
   if (!quiz) return;

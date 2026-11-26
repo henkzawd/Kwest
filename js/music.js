@@ -225,6 +225,10 @@ export function createEngine(ac, { cleanup = true } = {}) {
         if (k === 0) s.drone.bright(320 + 900 * p, t);
         if (n % 32 === 16) flutePhrase(s, n, p < 0.7 ? [[3, 6], [2, 2], [3, 8]] : [[5, 3], [6, 1], [5, 4]], 0.4);
       },
+      outro(s, t) { // siste slag når fasiten vises
+        E.drum(s.out, t, 0.65, 58);
+        [[D3 - 12, 0.4], [D3, 0.45], [D3 + 7, 0.35], [D4, 0.3]].forEach(([m, v]) => E.pluck(s.out, t, hz(m), v, 1.6));
+      },
     },
     // Fasit og diskusjon: bare bordun og spredte toner.
     calm: {
@@ -303,17 +307,19 @@ export function createEngine(ac, { cleanup = true } = {}) {
   const FADE = 1.4;
   let cur = null;
   const gone = []; // utfasede stemninger kobles fra når etterklangen har dødd ut
+  const retire = (old, at, tau = FADE / 3) => {
+    [old.out.dry.gain, old.out.wet.gain].forEach(p => {
+      if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(at); else p.cancelScheduledValues(at);
+      p.setTargetAtTime(0, at, tau);
+    });
+    old.drone?.stop(at + tau * 3 + 0.2);
+    if (cleanup) gone.push([at + tau * 3 + 4, old.out]);
+  };
+  // «end»: spørsmålsmusikken spiller litt over et sekund til i samme tempo, avslutter med et slag, og så blir det stille.
   E.setScene = (name, opts = {}, at = ac.currentTime) => {
     if (cur && cur.name === name) { Object.assign(cur.opts, opts); return; }
-    if (cur) {
-      const old = cur;
-      [old.out.dry.gain, old.out.wet.gain].forEach(p => {
-        if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(at); else p.cancelScheduledValues(at);
-        p.setTargetAtTime(0, at, FADE / 3);
-      });
-      old.drone?.stop(at + FADE + 0.2);
-      if (cleanup) gone.push([at + FADE + 4, old.out]);
-    }
+    if (name === 'end' && cur?.def.outro) { cur.name = 'end'; cur.endAt = at + 1.1; return; }
+    if (cur) retire(cur, at);
     cur = null;
     const def = SCENES[name];
     if (!def) return;
@@ -334,6 +340,7 @@ export function createEngine(ac, { cleanup = true } = {}) {
     if (s.t < now) s.t = now + 0.05; // fanen har sovet: hopp over i stedet for å spille alt på en gang
     while (s.t < until) {
       const sd = 30 / s.def.bpm(s);
+      if (s.endAt && s.t >= s.endAt && s.n % 2 === 0) { s.def.outro(s, s.t); retire(s, s.t + 0.3, 0.35); cur = null; return; }
       (s.q.get(s.n) || []).forEach(fn => fn(s.t, sd));
       s.q.delete(s.n);
       s.def.step(s, s.n, s.t, sd);
