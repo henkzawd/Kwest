@@ -627,6 +627,13 @@ select { cursor: pointer; }
 .bank-text { flex: 1; min-width: 0; }
 .bank-text b { font-weight: 600; }
 
+/* ---------- Musikk og lyd (storskjermen) ---------- */
+.sound-ctl { display: inline-flex; align-items: center; gap: 2px; }
+.sound-btn.off { opacity: .55; }
+.sound-btn.waiting { animation: pulse 1.6s ease-in-out infinite; color: var(--gold-2); }
+.sound-vol { width: 84px; accent-color: var(--gold); cursor: pointer; }
+@media (max-width: 860px) { .sound-vol { display: none; } }
+
 /* ---------- Reaksjoner ---------- */
 .react-toggle { opacity: .6; }
 .react-toggle.on { opacity: 1; }

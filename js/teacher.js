@@ -2,7 +2,7 @@
 import { h, svg, clear, debounce, modal, confirmBox, toast, readImage, download, copyText, fmtDate, baseUrl, uid } from './util.js';
 import { t, lang, langButton } from './i18n.js';
 import { backend } from './backend.js';
-import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, DISCUSS_TYPES, SCORED, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz, READ_TIMES, DEFAULT_READ_TIME, readTime } from './game.js';
+import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, DISCUSS_TYPES, SCORED, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz, READ_TIMES, DEFAULT_READ_TIME, readTime, SOUNDTRACKS, soundtrack } from './game.js';
 import { feedbackDialog } from './feedback.js';
 import { icon } from './icons.js';
 import { connectSteps } from './connect.js';
@@ -1042,6 +1042,10 @@ function settingsDialog() {
       h('select', { onchange: e => { q.settings.readTime = Number(e.target.value); changed(); } },
         READ_TIMES.map(s => h('option', { value: s, selected: s === readTime(q.settings) }, t('ed.seconds', { n: s }) + (s === DEFAULT_READ_TIME ? ' – ' + t('ed.pStandard').toLowerCase() : '')))),
       h('small', { class: 'muted' }, t('ed.readTimeHelp'))),
+    h('label', { class: 'field' }, h('span', null, '🎵 ' + t('ed.soundtrack')),
+      h('select', { onchange: e => { q.settings.soundtrack = e.target.value; changed(); } },
+        SOUNDTRACKS.map(id => h('option', { value: id, selected: id === soundtrack(q.settings) }, t('soundtrack.' + id)))),
+      h('small', { class: 'muted' }, t('ed.soundtrackHelp'))),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.leaderboard, onchange: e => { q.settings.leaderboard = e.target.checked; changed(); } }), t('ed.leaderboard')),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.shuffle, onchange: e => { q.settings.shuffle = e.target.checked; changed(); } }), t('ed.shuffle')),
     h('label', { class: 'check top' }, h('input', { type: 'checkbox', checked: !!q.settings.finale, onchange: e => { q.settings.finale = e.target.checked; changed(); } }),
