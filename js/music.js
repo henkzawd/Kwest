@@ -144,6 +144,38 @@ export function createEngine(ac, { cleanup = true, soundtrack = 'whiteTiger' } =
     [-6, 6].forEach(c => { const x = osc('sawtooth', fq, t, rel + 0.8); x.detune.value = c; x.connect(lp); });
     lp.connect(a); a.connect(g);
   };
+  // Strykere: akkord som sveller inn (seksjon av lett forstemte sagtann-bølger med vibrato).
+  E.strings = (o, t, freqs, dur, vel = 0.15, att = 0.4) => {
+    const g = out(o, 0.17, 0.5), lp = filter('lowpass', 2200, 0.5), a = gain(0), rel = t + Math.max(dur, att), end = rel + 1.5;
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(vel, t + att); a.gain.setTargetAtTime(0, rel, 0.25);
+    const lfo = osc('sine', 5.2, t, end), lg = gain(7); lfo.connect(lg);
+    freqs.forEach(fq => [-9, 9].forEach(c => { const x = osc('sawtooth', fq, t, end); x.detune.value = c; lg.connect(x.detune); x.connect(lp); }));
+    lp.connect(a); a.connect(g);
+  };
+  // Fiolin/stryker-melodi: myk start og vibrato som kommer etter hvert.
+  E.violin = (o, t, fq, dur, vel = 0.4) => {
+    const att = Math.min(0.12, dur * 0.5), rel = t + Math.max(att, dur), end = rel + 0.8;
+    const g = out(o, 0.2, 0.55), lp = filter('lowpass', Math.min(fq * 5, 6000), 0.6), hp = filter('highpass', 200), a = gain(0);
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(vel, t + att); a.gain.linearRampToValueAtTime(vel * 0.85, rel); a.gain.setTargetAtTime(0, rel, 0.12);
+    const lfo = osc('sine', 5.5, t, end), depth = gain(0), vs = t + Math.min(0.25, dur * 0.4);
+    depth.gain.setValueAtTime(0, vs); depth.gain.linearRampToValueAtTime(18, vs + 0.4); lfo.connect(depth);
+    [-6, 0, 6].forEach(c => { const x = osc('sawtooth', fq, t, end); x.detune.value = c; depth.connect(x.detune); x.connect(lp); });
+    lp.connect(hp); hp.connect(a); a.connect(g);
+  };
+  // Pauker.
+  E.timpani = (o, t, fq, vel = 0.4) => {
+    const g = out(o, 0.5, 0.3);
+    [[1, 1, 1.4], [1.5, 0.45, 0.9], [2, 0.25, 0.5]].forEach(([r, v, d]) => {
+      const x = osc('sine', fq * r * 1.04, t, t + d + 0.2), a = gain(0);
+      x.frequency.exponentialRampToValueAtTime(fq * r, t + 0.06);
+      a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(vel * v, t + 0.005); a.gain.setTargetAtTime(0, t + 0.006, d / 4.6);
+      x.connect(a); a.connect(g);
+    });
+    const n = noiseSrc(t, t + 0.15), lp = filter('lowpass', 900), ng = gain(0);
+    ng.gain.setValueAtTime(vel * 0.25, t); ng.gain.setTargetAtTime(0, t + 0.002, 0.02);
+    n.connect(lp); lp.connect(ng); ng.connect(g);
+  };
+  E.fx = fx;
   // Dyp bordun som ligger under alt; åpner seg (lysere) når spenningen stiger.
   E.drone = (o, t, freqs, vel = 0.4) => {
     const g = out(o, 0.125, 0.4), lp = filter('lowpass', 320, 0.6), a = gain(0);
@@ -222,7 +254,7 @@ export function createEngine(ac, { cleanup = true, soundtrack = 'whiteTiger' } =
       s.n++; s.t += sd;
     }
   };
-  E.sfx = (name, opts, at = ac.currentTime + 0.02) => SFX[name]?.(at, opts);
+  E.sfx = (name, opts, at = ac.currentTime + 0.02) => (SCENES.sfx?.[name] || SFX[name])?.(at, opts); // lydsporet kan ha egne effekter
   E.duck = on => music.gain.setTargetAtTime(on ? 0 : 1, ac.currentTime, on ? 0.12 : 0.6);
   E.volume = v => vol.gain.setTargetAtTime(v * v, ac.currentTime, 0.05);
   E.scene = () => cur?.name || null;
@@ -232,9 +264,10 @@ export function createEngine(ac, { cleanup = true, soundtrack = 'whiteTiger' } =
 
 // ---------- Lydspor ----------
 // Hvert lydspor lager sine egne stemninger (lobby, question, calm, scoreboard, podium) av instrumentene i motoren.
-// Nye lydspor (f.eks. «Jotunheimen») legges til her og i SOUNDTRACKS i game.js.
+// Nye lydspor legges til her og i SOUNDTRACKS i game.js (og får et navn i i18n.js).
 const SOUNDTRACKS = {
   whiteTiger, // Tempelet til den hvite tigeren: bambusfløyte, klimpret streng, tempeltromme og vindspill i D-moll-pentaton
+  jotunheimen, // Jotunheimen: strykere, horn, harpe og pauker i romantisk, Grieg-aktig stil
   none: () => ({}), // ingen musikk, bare lydeffekter
 };
 
@@ -367,6 +400,143 @@ return {
     },
   },
 };
+}
+
+function jotunheimen(E) {
+  const ch = str => str.split(' ').map(midi);
+  const F = m => hz(m);
+  // Spiller en melodi med valgt instrument; shift flytter den i halvtoner.
+  const line = (s, n, list, play, vel, shift = 0) => {
+    let pos = n;
+    list.forEach(([x, l]) => {
+      if (x !== 'r') { const fq = F(midi(x) + shift); s.at(pos, (t, sd) => play(s.out, t, fq, l * sd * 0.95, vel * (0.92 + rnd() * 0.16))); }
+      pos += l;
+    });
+    return pos;
+  };
+  const violin = (o, t, fq, d, v) => E.violin(o, t, fq, d, v);
+  const horn = (o, t, fq, d, v) => E.horn(o, t, fq, d, v);
+  const flute = (o, t, fq, d, v) => E.flute(o, t, fq, d, v);
+  const harp = (o, t, m, v = 0.24) => E.pluck(o, t, F(m), v, 2.6);
+  const pizz = (o, t, m, v = 0.3) => E.pluck(o, t, F(m), v, 0.45);
+
+  // Morgen over vidda (6/8): harpe, strykerakkorder og en melodi som går på omgang mellom fiolin, horn og fløyte.
+  const DAWN_CH = ['E2 B2 E3 G#3 B3', 'C#3 G#3 C#4 E4', 'A2 E3 A3 C#4 E4', 'A2 E3 A3 C4 E4', 'G#2 E3 G#3 B3 E4', 'F#2 F#3 A3 C#4 E4', 'B2 F#3 A3 B3 D#4', 'E2 B2 E3 G#3 B3'].map(ch);
+  const DAWN = seq(`G#4:2 B4:1 E5:3 D#5:1 E5:1 C#5:1 B4:3 A4:2 C#5:1 E5:3 E5:2 D5:1 C5:3
+    B4:2 G#4:1 E4:3 F#4:1 G#4:1 A4:1 C#5:3 B4:3 A4:1 G#4:1 F#4:1 E4:6`);
+  // Klatringen (e-moll): pizzicato som går fortere, pauker og hornrop.
+  const CLIMB = [['E3', 'B3', 'G3', 'B3', 'E3', 'B3', 'G3', 'B3'], ['E3', 'B3', 'G3', 'B3', 'E3', 'C4', 'G3', 'B3'],
+    ['C3', 'G3', 'E3', 'G3', 'C3', 'G3', 'E3', 'G3'], ['B2', 'F#3', 'D#3', 'F#3', 'B2', 'A3', 'F#3', 'D#3']].map(b => b.map(midi));
+  const CLIMB_CH = ['E3 B3 G4', 'E3 B3 G4', 'C3 G3 E4', 'B2 F#3 D#4 A4'].map(ch);
+  // Leirplassen (G-dur): spenstig pizzicato og en folketoneaktig melodi.
+  const CAMP_CH = ['G2 D3 G3 B3', 'F#2 D3 A3 D4', 'E2 B2 G3 B3', 'C3 G3 C4 E4', 'G2 D3 G3 B3', 'A2 E3 A3 C4', 'D3 A3 D4 F#4', 'G2 D3 G3 B3'].map(ch);
+  const CAMP = seq(`G4:2 B4:2 D5:3 B4:1 A4:2 F#4:2 D4:4 E4:2 G4:2 B4:2 A4:1 G4:1 E4:6 r:2
+    D5:2 B4:2 G4:3 B4:1 A4:2 C5:2 E5:4 D5:2 C5:1 B4:1 A4:2 F#4:2 G4:6 r:2`);
+  // Toppen (D-dur): fanfare og en bred hymne.
+  const HYMN_CH = ['D3 A3 D4 F#4', 'B2 F#3 B3 D4', 'G2 D3 G3 B3', 'A2 E3 A3 C#4', 'F#2 D3 A3 D4', 'G2 D3 B3 E4', 'A2 E3 G3 C#4', 'D3 A3 D4 F#4'].map(ch);
+  const HYMN = seq(`F#5:4 E5:2 D5:2 D5:3 C#5:1 B4:4 B4:2 D5:2 G5:3 F#5:1 E5:8
+    F#5:3 E5:1 D5:2 A4:2 B4:2 D5:2 G5:4 F#5:2 E5:2 D5:2 C#5:2 D5:8`);
+  const ARP6 = [1, 2, 3, 4, 3, 2];
+
+  let joinAt = 0, joinN = 0;
+  const JOIN = ch('E5 F#5 G#5 B5 C#6 E6 F#6 G#6');
+  return {
+    lobby: {
+      bpm: () => 69,
+      setup(s) { s.cycle = 0; },
+      step(s, n, t, sd) {
+        const k = n % 6, bar = Math.floor(n / 6), c = DAWN_CH[bar < 2 ? 0 : (bar - 2) % 8];
+        if (k === 0) { E.strings(s.out, t, c.map(F), sd * 6, 0.13, 0.8); if (bar % 4 === 0) E.timpani(s.out, t, F(40), 0.22); }
+        harp(s.out, t, c[ARP6[k] % c.length] + 12, k === 0 ? 0.26 : 0.18);
+        if (bar >= 2 && (bar - 2) % 8 === 0 && k === 0) {
+          const lead = [[violin, 0, 0.42], [horn, -12, 0.3], null, [flute, 12, 0.45], null][s.cycle++ % 5];
+          if (lead) line(s, n, DAWN, lead[0], lead[2], lead[1]);
+        }
+      },
+    },
+    question: {
+      bpm: s => 84 + 42 * (s.opts.pre ? 0 : s.opts.p || 0) ** 1.4,
+      setup() {},
+      step(s, n, t, sd) {
+        const pre = s.opts.pre, p = pre ? 0 : Math.min(1, s.opts.p || 0), k = n % 8, b = (n >> 3) % 4;
+        const m = CLIMB[b][k];
+        pizz(s.out, t, m, (k === 0 ? 0.42 : k % 2 ? 0.24 : 0.32) * (pre ? 0.75 : 1) * (1 + p * 0.3));
+        if (k === 0) E.strings(s.out, t, CLIMB_CH[b].map(F), sd * 8, 0.08 + p * 0.08, 0.5);
+        if (pre) return;
+        if (p > 0.6 && k % 2 === 0) pizz(s.out, t, m + 12, 0.14 + p * 0.1);
+        const hits = p < 0.5 ? [0] : p < 0.8 ? [0, 4] : [0, 2, 4, 6, 7];
+        if (hits.includes(k)) E.timpani(s.out, t, F(b === 3 ? 35 : 40), (k === 0 ? 0.42 : 0.28) * (1 + p * 0.3));
+        if (n % 32 === 16) line(s, n, p < 0.7 ? seq('B3:3 E4:5') : seq('E4:2 G4:2 B4:4'), horn, 0.28);
+      },
+      outro(s, t) { // siste slag når fasiten vises
+        E.timpani(s.out, t, F(40), 0.6);
+        E.strings(s.out, t, ch('E2 E3 B3 E4 G4').map(F), 0.35, 0.22, 0.02);
+      },
+    },
+    calm: {
+      bpm: () => 54,
+      setup() {},
+      step(s, n, t, sd) {
+        const k = n % 8, c = ['E3 B3 E4 G#4', 'A2 E3 A3 C#4 E4', 'C#3 G#3 C#4 E4', 'B2 F#3 B3 D#4'].map(ch)[(n >> 4) % 4];
+        if (n % 16 === 0) E.strings(s.out, t, c.map(F), sd * 16, 0.1, 1.5);
+        if ((k === 3 || k === 6) && rnd() < 0.4) harp(s.out, t, c[1 + Math.floor(rnd() * (c.length - 1))] + 12, 0.16);
+      },
+    },
+    scoreboard: {
+      bpm: () => 96,
+      setup(s) { s.next = 8; s.cycle = 0; },
+      step(s, n, t, sd) {
+        const k = n % 8, bar = n >> 3, c = CAMP_CH[bar < 1 ? 0 : (bar - 1) % 8];
+        pizz(s.out, t, k === 0 ? c[0] : c[[0, 2, 1, 3, 0, 2, 1, 3][k]] + 12, k === 0 ? 0.4 : 0.24);
+        if (k === 0) { E.strings(s.out, t, c.slice(1).map(F), sd * 8, 0.08, 0.3); E.timpani(s.out, t, F(c[0] < 43 ? c[0] + 12 : c[0]), 0.28); }
+        if (k === 4) E.timpani(s.out, t, F(38), 0.16);
+        if (n === s.next) {
+          if (s.cycle < 2 || s.cycle % 2 === 0) line(s, n, CAMP, s.cycle % 2 ? violin : horn, s.cycle % 2 ? 0.4 : 0.3);
+          s.cycle++; s.next += 64;
+        }
+      },
+    },
+    podium: {
+      bpm: () => 84,
+      setup(s, t) {
+        for (let x = 0.15; x < 2.75; x += 0.06) E.timpani(s.out, t + x, F(38), 0.05 + 0.3 * (x / 2.75) ** 1.5);
+        E.strings(s.out, t, ch('A2 E3 A3 C#4').map(F), 2.8, 0.12, 2.6);
+        s.next = 32; s.cycle = 0;
+      },
+      step(s, n, t, sd) {
+        if (n === 4) line(s, n, seq('A3:1 D4:1 F#4:1 A4:1'), horn, 0.34);
+        if (n === 8) line(s, n, seq('D5:5 C#5:1 B4:1 C#5:1 D5:4 E5:4 F#5:8'), violin, 0.45);
+        const fan = { 8: ['D3 A3 D4 F#4 A4', 'D4 F#4 A4', 38, 8], 16: ['G2 D3 B3 G4', 'G3 B3 D4', 0, 4], 20: ['A2 E3 C#4 A4', 'A3 C#4 E4', 33, 4], 24: ['D3 A3 D4 F#4', 'D4 F#4 A4', 38, 8] }[n];
+        if (fan) {
+          E.strings(s.out, t, ch(fan[0]).map(F), sd * fan[3], 0.16, 0.05);
+          ch(fan[1]).forEach(m => E.horn(s.out, t, F(m), sd * fan[3], 0.24));
+          if (fan[2]) E.timpani(s.out, t, F(fan[2]), n === 8 ? 0.7 : 0.5);
+          if (n === 8) E.bell(s.out, t, F(86), 0.22, 4);
+        }
+        if (n < 32) return;
+        const k = n % 8, c = HYMN_CH[((n - 32) >> 3) % 8];
+        if (k === 0) { E.strings(s.out, t, c.map(F), sd * 8, 0.12, 0.6); E.timpani(s.out, t, F(c[0] < 43 ? c[0] + 12 : c[0]), 0.22); pizz(s.out, t, c[0], 0.32); }
+        harp(s.out, t, c[[1, 2, 3, 2, 1, 2, 3, 2][k]] + 12, 0.16);
+        if (n === s.next) {
+          if (s.cycle < 2 || s.cycle % 2 === 0) line(s, n, HYMN, s.cycle % 2 ? horn : violin, s.cycle % 2 ? 0.3 : 0.42, s.cycle % 2 ? -12 : 0);
+          s.cycle++; s.next += 64;
+        }
+      },
+    },
+    // Egne lydeffekter: harpe og klokkespill i stedet for tempelklokker.
+    sfx: {
+      join(at) {
+        if (at - joinAt < 0.12) return;
+        joinN = at - joinAt > 3 ? 0 : joinN + 1; joinAt = at;
+        harp(E.fx, at, JOIN[joinN % JOIN.length], 0.3);
+      },
+      go(at) { E.bell(E.fx, at, F(76), 0.3, 3); E.strings(E.fx, at, ch('E3 B3 E4').map(F), 1.2, 0.08, 0.5); },
+      reveal(at) {
+        E.bell(E.fx, at, F(88), 0.25, 3.5);
+        ch('E5 G#5 B5 E6').forEach((m, i) => harp(E.fx, at + 0.08 * i, m, 0.3));
+      },
+    },
+  };
 }
 
 function impulse(ac, sec) { // etterklang som i en steinhall

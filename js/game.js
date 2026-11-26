@@ -56,8 +56,8 @@ export function readTime(settings) {
   return Number.isFinite(n) && n >= 1 && n <= 60 ? Math.round(n) : DEFAULT_READ_TIME;
 }
 
-// Lydspor: musikken på storskjermen. Flere kan komme (f.eks. «Jotunheimen»); «none» = bare lydeffekter.
-export const SOUNDTRACKS = ['whiteTiger', 'none'];
+// Lydspor: musikken på storskjermen. Nye lydspor legges også inn i js/music.js; «none» = bare lydeffekter.
+export const SOUNDTRACKS = ['whiteTiger', 'jotunheimen', 'none'];
 export const DEFAULT_SOUNDTRACK = 'whiteTiger';
 export function soundtrack(settings) {
   return SOUNDTRACKS.includes(settings?.soundtrack) ? settings.soundtrack : DEFAULT_SOUNDTRACK;

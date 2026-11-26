@@ -121,7 +121,7 @@ const SETTINGS_SCHEMA = {
     shuffle: { type: 'boolean', description: 'Shuffle answer options (default false).' },
     finale: { type: 'boolean', description: 'The last scored question counts double (default false).' },
     readTime: { type: 'integer', minimum: 3, maximum: 20, description: 'Seconds the question is shown before students can answer (default 6). Use more for long questions.' },
-    soundtrack: { type: 'string', enum: SOUNDTRACKS, description: 'Background music on the big screen: "whiteTiger" (Temple of the White Tiger, default) or "none" (sound effects only). Only change if the teacher asks.' },
+    soundtrack: { type: 'string', enum: SOUNDTRACKS, description: 'Background music on the big screen: "whiteTiger" (Temple of the White Tiger: flute, temple drums; default), "jotunheimen" (Norwegian mountains: strings and horns in a romantic, Grieg-like style) or "none" (sound effects only). Only change if the teacher asks.' },
   },
 };
 
