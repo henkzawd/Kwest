@@ -8,7 +8,7 @@
 //   /.well-known/oauth-protected-resource…    – forteller Claude hvor innloggingen skjer
 //   /.well-known/oauth-authorization-server   – reserve for eldre klienter (videresender Supabase sin)
 import { SUPABASE_URL, SUPABASE_KEY } from '../js/config.js';
-import { normalizeQuestion, exportQuiz, validateQuiz } from '../js/game.js';
+import { normalizeQuestion, exportQuiz, validateQuiz, readTime } from '../js/game.js';
 
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const AUTH_SERVER = SUPABASE_URL.replace(/\/$/, '') + '/auth/v1';
@@ -120,6 +120,7 @@ const SETTINGS_SCHEMA = {
     leaderboard: { type: 'boolean', description: 'Show the leaderboard between questions (default true).' },
     shuffle: { type: 'boolean', description: 'Shuffle answer options (default false).' },
     finale: { type: 'boolean', description: 'The last scored question counts double (default false).' },
+    readTime: { type: 'integer', minimum: 3, maximum: 20, description: 'Seconds the question is shown before students can answer (default 6). Use more for long questions.' },
   },
 };
 
@@ -224,6 +225,7 @@ const cleanSettings = (s, base = {}) => ({
   leaderboard: s?.leaderboard ?? base.leaderboard ?? true,
   shuffle: !!(s?.shuffle ?? base.shuffle),
   finale: !!(s?.finale ?? base.finale),
+  readTime: readTime({ readTime: s?.readTime ?? base.readTime }),
 });
 
 function summary(quiz, link) {

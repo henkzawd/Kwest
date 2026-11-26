@@ -373,7 +373,7 @@ try {
   if (await host.locator('.th-qr').count()) throw new Error('Prøvekjøring skal ikke vise QR-kode');
   await shot(host, '27-provekjoring');
   await host.getByRole('button', { name: 'Start' }).click();
-  for (let guard = 0; guard < 200 && !(await host.locator('.podium-scene').count()); guard++) {
+  for (const end = Date.now() + 150000; Date.now() < end && !(await host.locator('.podium-scene').count());) {
     const btn = host.locator('.hfoot .btn.primary');
     if (await btn.count()) await btn.click(); else await host.waitForTimeout(300);
   }

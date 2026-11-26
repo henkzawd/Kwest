@@ -80,7 +80,7 @@ try {
   await host.screenshot({ path: (process.env.SHOTS || '/tmp') + '/load-lobby.png' });
   await host.getByRole('button', { name: 'Start' }).click();
   let shotTrail = false;
-  for (let guard = 0; guard < 400; guard++) {
+  for (const end = Date.now() + 300000; Date.now() < end;) {
     if (await host.locator('.podium-scene').count()) break;
     const btn = host.locator('.hfoot .btn.primary');
     if (!shotTrail && await host.locator('.trail-scene').count()) { shotTrail = true; await host.waitForTimeout(2600); await host.screenshot({ path: (process.env.SHOTS || '/tmp') + '/load-sti.png' }); }
