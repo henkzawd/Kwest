@@ -662,7 +662,7 @@ function drawPanel() {
 
   const changeType = type => {
     const fresh = newQuestion(type);
-    fresh.id = q.id; fresh.text = q.text; fresh.image = q.image; fresh.audio = q.audio; fresh.autoplay = q.autoplay; fresh.explanation = q.explanation || '';
+    fresh.id = q.id; fresh.text = q.text; fresh.image = q.image; fresh.audio = q.audio; fresh.autoplay = q.autoplay; fresh.explanation = q.explanation || ''; fresh.explanationImage = q.explanationImage || '';
     if (type !== 'info' && q.type !== 'info' && q.time) fresh.time = q.time;
     if (q.discuss && DISCUSS_TYPES.includes(type)) fresh.discuss = true;
     // Ta med svaralternativene der det gir mening.
@@ -722,7 +722,7 @@ function explanationField(q, ro) {
   ta.value = q.explanation || '';
   return h('label', { class: 'field exp-field' },
     h('span', null, icon('book', 15), ' ', t('ed.explanation'), h('span', { class: 'tag' }, t('ed.optional'))),
-    ta, h('small', { class: 'muted' }, t('ed.explanationHint')));
+    ta, imageBox(q, ro, 'explanationImage'), h('small', { class: 'muted' }, t('ed.explanationHint')));
 }
 
 function move(d) {
@@ -733,30 +733,33 @@ function move(d) {
   changed(); drawList(); drawPanel();
 }
 
-function imageBox(q, ro) {
-  const input = h('input', { type: 'file', accept: 'image/*', class: 'hidden', onchange: () => input.files[0] && setImage(q, input.files[0]) });
-  if (q.image) {
-    return h('div', { class: 'img-box has' },
-      h('img', { src: q.image, alt: '' }),
-      ro ? null : h('button', { class: 'btn ghost small img-remove', onclick: () => { q.image = ''; changed(); drawList(); drawPanel(); } }, t('ed.removeImage')));
+// key = 'image' (bildet i spørsmålet) eller 'explanationImage' (bildet i forklaringen, mindre boks).
+function imageBox(q, ro, key = 'image') {
+  const exp = key === 'explanationImage';
+  const cls = 'img-box' + (exp ? ' exp-pick' : '');
+  const input = h('input', { type: 'file', accept: 'image/*', class: 'hidden', onchange: () => input.files[0] && setImage(q, input.files[0], key) });
+  if (q[key]) {
+    return h('div', { class: cls + ' has' },
+      h('img', { src: q[key], alt: '' }),
+      ro ? null : h('button', { class: 'btn ghost small img-remove', onclick: () => { q[key] = ''; changed(); drawList(); drawPanel(); } }, t('ed.removeImage')));
   }
   if (ro) return null;
-  const box = h('div', { class: 'img-box', tabindex: '0', role: 'button', onclick: () => input.click(),
-    onkeydown: e => { if (e.key === 'Enter') input.click(); },
+  const box = h('div', { class: cls, tabindex: '0', role: 'button', onclick: e => { if (e.target === input) return; e.preventDefault(); input.click(); }, // preventDefault: ikke la <label> rundt forklaringen ta klikket
+    onkeydown: e => { if (e.key === 'Enter') { e.preventDefault(); input.click(); } },
     ondragover: e => { e.preventDefault(); box.classList.add('drag'); },
     ondragleave: () => box.classList.remove('drag'),
-    ondrop: e => { e.preventDefault(); box.classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) setImage(q, f); },
-  }, h('span', { class: 'img-plus' }, icon('image', 30)), h('span', null, t('ed.imageHint')), input);
+    ondrop: e => { e.preventDefault(); box.classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) setImage(q, f, key); },
+  }, h('span', { class: 'img-plus' }, icon('image', exp ? 20 : 30)), h('span', null, t(exp ? 'ed.expImageHint' : 'ed.imageHint')), input);
   return box;
 }
 
-async function setImage(q, file) {
+async function setImage(q, file, key = 'image') {
   try {
     const dataUrl = await readImage(file);
     if (backend.mode === 'demo' && dataUrl.length > 1_500_000) return toast(t('ed.tooBig'), 'bad');
     toast(t('ed.uploading'));
     const blob = await (await fetch(dataUrl)).blob();
-    q.image = await backend.uploadMedia(blob, blob.type === 'image/png' ? 'png' : 'jpg');
+    q[key] = await backend.uploadMedia(blob, blob.type === 'image/png' ? 'png' : 'jpg');
     changed(); drawList(); drawPanel();
   } catch (e) { toast(errMsg(e), 'bad'); }
 }
@@ -782,7 +785,8 @@ document.addEventListener('paste', e => {
   const img = files.find(f => f.type.startsWith('image/'));
   const snd = files.find(isAudio);
   if (snd) { e.preventDefault(); setAudio(E.quiz.questions[E.sel], snd); }
-  else if (img) { e.preventDefault(); setImage(E.quiz.questions[E.sel], img); }
+  // Står markøren i forklaringen, havner bildet der.
+  else if (img) { e.preventDefault(); setImage(E.quiz.questions[E.sel], img, document.activeElement?.closest('.exp-field') ? 'explanationImage' : 'image'); }
 });
 
 function audioBox(q, ro) {

@@ -116,6 +116,15 @@ export function modal(title, body, actions = []) {
   return { el: wrap, close };
 }
 
+// Viser et bilde over hele skjermen (f.eks. et molekyl i forklaringen). Klikk eller Esc lukker.
+export function zoomImage(src) {
+  const close = () => { wrap.remove(); window.removeEventListener('keydown', onKey, true); };
+  const onKey = e => { e.stopPropagation(); if (['Escape', 'Enter', ' '].includes(e.key)) { e.preventDefault(); close(); } };
+  const wrap = h('div', { class: 'zoom-wrap', role: 'dialog', 'aria-modal': 'true', onclick: close }, h('img', { src, alt: '' }));
+  document.body.append(wrap);
+  window.addEventListener('keydown', onKey, true);
+}
+
 export function confirmBox(title, text, okLabel, cancelLabel) {
   return new Promise(resolve => {
     let m;

@@ -47,6 +47,7 @@ Andre funksjoner: lyd på spørsmål og infosider (lenke eller opplastet .mp3/.w
 - **Finale:** Slå på **Finale** under ⚙ Innstillinger, så teller det siste spørsmålet dobbelt og annonseres som «Finale!».
 - **Største klatrer:** Poengtavlen viser hvem som klatret flest plasser, og eleven får beskjed på mobilen.
 - **Reaksjoner:** Elevene kan sende 🐐 og ⛰️ som flyr over storskjermen i lobbyen og mellom spørsmålene. Slå av med knappen øverst på storskjermen.
+- **Bilde i forklaringen:** Under «Forklaring» kan du legge til et bilde, f.eks. et molekyl eller en graf. Når svaret vises, får forklaringen da mesteparten av storskjermen med bildet øverst og teksten under. Klikk på bildet for å vise det over hele skjermen (klikk igjen eller trykk Esc for å lukke). Elevene ser bildet på mobilen også, og kan trykke på det for å forstørre.
 - **Gå gjennom de vanskeligste:** Etter pallen kan du vise de tre spørsmålene flest svarte feil på, med riktig svar, vanligste gale svar og forklaring.
 
 ## Før og etter timen

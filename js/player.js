@@ -1,5 +1,5 @@
 // Elevsiden: bli med med Kwest-kode + navn, og svar på mobilen.
-import { h, svg, clear, uid, qs, baseUrl } from './util.js';
+import { h, svg, clear, uid, qs, baseUrl, zoomImage } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { feedbackDialog } from './feedback.js';
@@ -389,12 +389,13 @@ function fitSize(text) {
 }
 
 // Forklaringen etter et svar (vises bare når læreren har skrevet noe).
-export function explanationPanel(exp) {
+export function explanationPanel(exp, img) {
   exp = (exp || '').trim();
-  if (!exp) return null;
-  return h('div', { class: 'exp-panel' },
+  if (!exp && !img) return null;
+  return h('div', { class: 'exp-panel' + (img ? ' has-img' : '') },
     h('b', null, svg('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5V5.5"/></svg>'), t('play.explanation')),
-    h('p', null, exp));
+    img ? h('img', { class: 'exp-img', src: img, alt: '', onclick: () => zoomImage(img) }) : null,
+    exp ? h('p', null, exp) : null);
 }
 
 // Riktig/feil etter et svar: hvit skjerm med et bånd øverst, høydemeter og forklaringen.
@@ -414,7 +415,7 @@ export function resultCard({ ok, answered = true, pts = 0, streak = 0, correct =
 function resultView(st) {
   const r = st.results?.[S.id];
   const scored = st.q && st.q.scored;
-  const expBox = explanationPanel(st.q?.explanation);
+  const expBox = explanationPanel(st.q?.explanation, st.q?.expImage);
   S.view = () => resultView(st);
   if (!r || !scored) {
     if (!expBox) return message(() => (r?.answered ? t('play.thanks') : t('play.lookScreen')), null, { icon: h('div', { class: 'big-mark' }, questionSvg(90)), react: true });
