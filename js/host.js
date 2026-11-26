@@ -1,5 +1,5 @@
 // Storskjermen: læreren starter spillet, viser spørsmål, resultater og pallen.
-import { h, svg, clear, qs, makePin, shuffle, baseUrl, normText, confirmBox, toast } from './util.js';
+import { h, svg, clear, qs, makePin, shuffle, baseUrl, normText, confirmBox, toast, zoomImage } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
 import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints } from './game.js';
@@ -271,6 +271,7 @@ function statePayload() {
     if (G.phase === 'reveal' && cur) {
       const exp = (cur.explanation || '').trim();
       if (exp) st.q.explanation = exp;
+      if (cur.explanationImage) st.q.expImage = cur.explanationImage;
       Object.assign(st.q, correctAnswer(cur));
     }
     st.results = {};
@@ -816,9 +817,10 @@ function renderReveal(main) {
       put(main, h('p', { class: 'before-after' }, '💬 ' + t('host.beforeAfter', { a: before, b: after })));
     }
     const exp = explanationBox(cur);
-    body = h('div', { class: 'reveal-wrap' },
-      cur.image ? h('img', { class: 'qimg small', src: cur.image, alt: '' }) : null,
-      h('div', { class: 'reveal-cards' + (exp ? ' with-exp' : '') },
+    const big = exp && cur.explanationImage; // forklaring med bilde får mesteparten av plassen
+    body = h('div', { class: 'reveal-wrap' + (big ? ' big-exp' : '') },
+      cur.image && !big ? h('img', { class: 'qimg small', src: cur.image, alt: '' }) : null,
+      h('div', { class: 'reveal-cards' + (exp ? ' with-exp' : '') + (big ? ' big-exp' : '') },
         tiles(cur, { correct, reveal: true, counts, first: G.round === 2 && G.first ? G.first : null }),
         exp));
   } else if (cur.type === 'short') {
@@ -841,7 +843,7 @@ function renderReveal(main) {
   }
   // Forklaring ved siden av (for flervalg står den allerede ved svarkortene).
   const sideExp = ['quiz', 'poll', 'truefalse'].includes(cur.type) ? null : explanationBox(cur);
-  put(main, h('div', { class: 'reveal-body' }, sideExp ? h('div', { class: 'reveal-split' }, body, sideExp) : body), audioPlayer(cur, false));
+  put(main, h('div', { class: 'reveal-body' }, sideExp ? h('div', { class: 'reveal-split' + (cur.explanationImage ? ' big-exp' : '') }, body, sideExp) : body), audioPlayer(cur, false));
   put(main, h('div', { class: 'hfoot' },
     SCORED.includes(cur.type) ? h('span', { class: 'reveal-stat' }, t('host.correctCount', { n: nCorrect, total: nPlayers })) : h('span', null),
     h('button', { class: 'btn primary big', onclick: next }, G.qi >= total() - 1 ? t('host.podium') : t('host.next'))));
@@ -861,8 +863,11 @@ function correctAnswer(cur) {
 
 function explanationBox(cur) {
   const exp = (cur.explanation || '').trim();
-  if (!exp) return null; // tomt felt = ingen boks
-  return h('aside', { class: 'exp-box' }, h('b', null, icon('book', 16), t('host.explanation')), h('p', null, exp));
+  const img = cur.explanationImage;
+  if (!exp && !img) return null; // tomt felt = ingen boks
+  return h('aside', { class: 'exp-box' + (img ? ' has-img' : '') }, h('b', null, icon('book', 16), t('host.explanation')),
+    img ? h('img', { class: 'exp-img', src: img, alt: '', title: t('zoom.hint'), onclick: () => zoomImage(img) }) : null,
+    exp ? h('p', null, exp) : null);
 }
 
 function renderDiscuss(main) {
@@ -1128,7 +1133,7 @@ function renderReview(main) {
       h('span', { class: 'review-pct' }, t('review.pct', { n: item.pct }))),
     questionHead(cur, item.i),
     h('div', { class: 'review-body' },
-      cur.image ? h('img', { class: 'qimg small', src: cur.image, alt: '' }) : null,
+      cur.image && !cur.explanationImage ? h('img', { class: 'qimg small', src: cur.image, alt: '' }) : null,
       h('div', { class: 'stack grow' },
         h('div', { class: 'correct-box' }, h('span', null, t('host.correctAnswer')), h('strong', null, correctText)),
         item.wrong.length ? h('div', { class: 'review-wrong' }, h('b', null, t('review.wrong')),

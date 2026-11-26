@@ -125,7 +125,7 @@ function correctText(q) {
 }
 
 function feedback(q, ok, pts) {
-  const expBox = ui.explanationPanel(q.explanation);
+  const expBox = ui.explanationPanel(q.explanation, q.explanationImage);
   const last = H.questions.slice(H.i + 1).every(x => x.type === 'scoreboard');
   const nextBtn = h('button', { class: 'btn primary huge', onclick: () => go(H.i + 1) }, last ? t('hw.finish') : t('host.next') + ' →');
   const result = ui.resultCard({ ok, pts, correct: ok === false ? correctText(q) : '', hasExp: !!expBox });

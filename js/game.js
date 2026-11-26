@@ -33,7 +33,7 @@ export function finaleIndex(quiz) {
 }
 
 export function newQuestion(type = 'quiz') {
-  const q = { id: uid(8), type, text: '', image: '', audio: '', autoplay: true, explanation: '', time: 20, points: 'standard' };
+  const q = { id: uid(8), type, text: '', image: '', audio: '', autoplay: true, explanation: '', explanationImage: '', time: 20, points: 'standard' };
   switch (type) {
     case 'quiz': q.options = [{ text: '', correct: true }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }]; break;
     case 'truefalse': q.tf = true; q.time = 10; break;
@@ -126,6 +126,8 @@ export function normalizeQuestion(r) {
   q.image = typeof r.image === 'string' && /^(data:image\/|https:\/\/)/.test(r.image) ? r.image : '';
   q.audio = typeof r.audio === 'string' && /^(data:audio\/|https:\/\/)/.test(r.audio) ? r.audio : '';
   q.autoplay = r.autoplay !== false;
+  const expImg = r.explanationImage ?? r.explanation_image;
+  q.explanationImage = typeof expImg === 'string' && /^(data:image\/|https:\/\/)/.test(expImg) ? expImg : '';
   q.explanation = findExplanation(r)
     .replace(/^\s*(forklaring|explanation)\s*:\s*/i, '')
     .replace(/^1[–-]3 (setninger|sentences) .*$/i, '') // eksempelteksten kopiert uendret

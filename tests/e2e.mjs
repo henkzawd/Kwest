@@ -16,6 +16,10 @@ const URL0 = `http://localhost:${PORT}/`;
 const quizObj = JSON.parse(readFileSync(ROOT + 'eksempler/eksempel-kwest.json', 'utf8'));
 quizObj.questions.splice(5, 0, { type: 'scoreboard' });
 quizObj.questions[2].discuss = true; // flervalg: diskuter og stem igjen
+// Bilde i forklaringen (vises stort på storskjermen og mobilen)
+const diagram = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#fff"/><g stroke="#333" stroke-width="4" fill="none"><rect x="60" y="40" width="130" height="100" rx="20" fill="#E9C9CF"/><rect x="210" y="40" width="130" height="100" rx="20" fill="#C9D9E9"/><rect x="60" y="160" width="130" height="110" rx="20" fill="#D99AA6"/><rect x="210" y="160" width="130" height="110" rx="20" fill="#9AB6D9"/></g><g font-family="sans-serif" font-size="22" text-anchor="middle"><text x="125" y="97">Atrium</text><text x="275" y="97">Atrium</text><text x="125" y="222">Ventrikkel</text><text x="275" y="222">Ventrikkel</text></g></svg>');
+quizObj.questions[2].explanationImage = diagram;
+quizObj.questions[6].explanationImage = diagram; // tallsvar: forklaringen står ved siden av
 quizObj.settings = { ...(quizObj.settings || {}), finale: true }; // siste poenggivende spørsmål teller dobbelt
 const quizJson = JSON.stringify(quizObj);
 const errors = [];
@@ -50,6 +54,10 @@ try {
   await opts.nth(0).fill('3'); await opts.nth(1).fill('4');
   await teacher.locator('.opt-correct').nth(0).click(); // fjern riktig på 3
   await teacher.locator('.opt-correct').nth(1).click(); // sett riktig på 4
+  await teacher.locator('.exp-input').fill('Fordi 2 + 2 = 4.');
+  await teacher.locator('.exp-pick input[type=file]').setInputFiles({ name: 'graf.png', mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAPAAAACgCAIAAAC9uXYyAAABTUlEQVR42u3SMQ0AMAwEsfCHECDl0KlzIJRFeLwsGcHp6t8HMUoCDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgwNhsbQYGgwNBgaDI2hwdBgaDA0GBpDg6HB0GBoMDSGBkODocHQYGgMDYYGQ4OhMTQYGgwNhgZDY2gwNBgaDA2GxtBgaDA0GBoMjaHB0GBoMDQYGkODocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkNjaAgZus9ADENjaDA0GBoMjaHB0GBoMDQYGkODocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgyNoVXA0GBoMDQYGkODocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgwNhsbQYGgwNBgaQ0OIBeh74nT8uYgvAAAAAElFTkSuQmCC', 'base64') });
+  await teacher.locator('.exp-pick.has img').waitFor();
   await teacher.locator('.save-status[data-s=saved]').filter({ hasText: 'Lagret' }).waitFor({ timeout: 5000 });
   await shot(teacher, '02-editor');
   await teacher.getByRole('button', { name: '+ Legg til' }).click();
@@ -190,10 +198,18 @@ try {
   await p2.getByText('Ikke denne gangen').waitFor();
   await host.waitForTimeout(900); await shot(host, '13-resultat');
   if (!(await host.locator('.exp-box').count())) throw new Error('Mangler forklaring på storskjermen');
+  if (!(await host.locator('.reveal-cards.big-exp .exp-box.has-img img.exp-img').count())) throw new Error('Mangler bildet i forklaringen på storskjermen');
+  await host.locator('.exp-box .exp-img').click();
+  await host.locator('.zoom-wrap img').waitFor(); await host.waitForTimeout(300);
+  await shot(host, '13b-forklaring-zoom');
+  await host.keyboard.press('Escape');
+  if (await host.locator('.zoom-wrap').count()) throw new Error('Forstørret bilde lukket seg ikke');
+  if (!(await host.locator('.exp-box').count())) throw new Error('Esc på forstørret bilde gikk videre i spillet');
   await p2.locator('.exp-panel').waitFor();
+  if (!(await p2.locator('.exp-panel.has-img img.exp-img').count())) throw new Error('Mangler bildet i forklaringen på mobilen');
   await p2.getByText('Riktig svar: 4').waitFor();
   await shot(p2, '15b-mobil-forklaring');
-  step('Forklaring vises på storskjerm og mobil, med riktig svar for den som svarte feil');
+  step('Forklaring med bilde vises på storskjerm og mobil (kan forstørres), med riktig svar for den som svarte feil');
   if (!(await host.locator('.tile.dim').count())) throw new Error('Gale svar er ikke merket');
   await shot(p1, '14-mobil-riktig');
   await shot(p2, '15-mobil-feil');
@@ -234,7 +250,7 @@ try {
   await p2.locator('input[type=range]').evaluate(el => { el.value = 150; el.dispatchEvent(new Event('input')); });
   await p2.getByRole('button', { name: 'Send' }).click();
   await p1.getByText('Riktig!').waitFor();
-  await host.locator('.reveal-split .exp-box').waitFor(); await host.waitForTimeout(900);
+  await host.locator('.reveal-split.big-exp .exp-box.has-img').waitFor(); await host.waitForTimeout(900);
   await shot(host, '19-slider-resultat');
   await host.getByRole('button', { name: 'Neste' }).click();
   await host.getByRole('button', { name: 'Neste' }).click();
@@ -284,6 +300,7 @@ try {
   // Gjennomgang av de vanskeligste spørsmålene
   await host.getByRole('button', { name: /Gå gjennom de vanskeligste/ }).click();
   await host.locator('.review-pct').waitFor();
+  await host.locator('.review-body .exp-box.has-img').waitFor(); await host.waitForTimeout(900);
   await shot(host, '22b-gjennomgang');
   while (await host.locator('.review-pct').count()) await host.locator('.hfoot .btn.primary').click();
   await host.locator('.podium-scene').waitFor();

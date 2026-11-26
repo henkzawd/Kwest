@@ -415,6 +415,9 @@ select { cursor: pointer; }
 .img-box.has { cursor: default; border: 0; background: none; padding: 0; position: relative; }
 .img-box.has img { max-height: 300px; border-radius: 14px; box-shadow: var(--shadow); }
 .img-remove { position: absolute; top: 8px; right: 8px; background: #fff !important; }
+.img-box.exp-pick { width: 100%; min-height: 0; flex-direction: row; padding: 10px 14px; margin: 8px 0 4px; font-size: .9rem; border-width: 1.5px; }
+.img-box.exp-pick.has { padding: 0; width: fit-content; max-width: 100%; align-self: flex-start; }
+.img-box.exp-pick.has img { max-height: 220px; max-width: 100%; }
 .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .opts.list { grid-template-columns: 1fr; }
 .opt { display: flex; align-items: center; gap: 10px; background: #fff; border: 3px solid color-mix(in srgb, var(--c) 40%, #fff); border-radius: 14px; padding: 8px 10px; min-height: 64px; }
@@ -581,6 +584,25 @@ select { cursor: pointer; }
 .exp-panel { flex: 1; background: #FFFBF0; border-left: 5px solid var(--gold); padding: 16px 18px; font-size: 1.05rem; line-height: 1.5; overflow: auto; }
 .exp-panel b { display: flex; align-items: center; gap: 6px; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: #B4630F; margin-bottom: 6px; }
 .exp-panel p { margin: 0; white-space: pre-wrap; }
+/* Forklaring med bilde (molekyl, graf …): bildet tar mesteparten av plassen, teksten står under. */
+.exp-img { display: block; width: 100%; min-height: 0; object-fit: contain; background: #fff; border-radius: 12px; cursor: zoom-in; }
+.exp-box.has-img { display: flex; flex-direction: column; min-height: 0; font-size: clamp(1.05rem, 1.45vw, 1.35rem); }
+.exp-box.has-img .exp-img { flex: 1 1 auto; max-height: 58vh; margin: 4px 0 12px; }
+.exp-box.has-img .exp-img:last-child { margin-bottom: 0; }
+.exp-panel.has-img .exp-img { max-height: 42vh; margin: 4px 0 12px; }
+.reveal-wrap.big-exp, .reveal-cards.big-exp, .reveal-split.big-exp { flex: 1; min-height: 0; }
+.reveal-cards.big-exp { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); grid-template-rows: minmax(0, 1fr); padding-top: 0; }
+.reveal-split.big-exp { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+.reveal-split.big-exp > :first-child { align-self: center; }
+.review-body .exp-box.has-img { max-width: none; flex: 1.4 1 0; align-self: stretch; }
+/* På storskjermen låses høyden til skjermen, så bildet fyller plassen som er igjen uten å skyve «Neste» ut av bildet. */
+@media (min-width: 901px) {
+  .page-host #app:has(.big-exp, .review-body .exp-box.has-img) { height: 100vh; }
+  .review-body:has(.exp-box.has-img) { min-height: 0; }
+}
+@media (max-width: 900px) { .reveal-cards.big-exp, .reveal-split.big-exp { grid-template-columns: 1fr; grid-template-rows: none; } }
+.zoom-wrap { position: fixed; inset: 0; z-index: 60; background: #FFFDF7; display: grid; place-items: center; padding: 3vmin; cursor: zoom-out; animation: fade .15s ease; }
+.zoom-wrap img { width: calc(100vw - 6vmin); height: calc(100vh - 6vmin); object-fit: contain; }
 
 /* ---------- Etiketter, angre og spørsmålsbank ---------- */
 .label-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -8px 0 18px; color: var(--muted); }

@@ -108,6 +108,7 @@ const QUESTION_SCHEMA = {
     items: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'order: 2–4 items listed in the CORRECT order (students see them shuffled).' },
     maxWords: { type: 'integer', minimum: 1, maximum: 3, description: 'wordcloud: words per student.' },
     image: { type: 'string', description: 'Optional https:// URL of an image to show with the question.' },
+    explanationImage: { type: 'string', description: 'Optional https:// URL of an image shown large in the explanation after answering (e.g. a molecule, graph or diagram), with the explanation text below it.' },
     discuss: { type: 'boolean', description: 'quiz/truefalse/poll: let students discuss with a neighbour and vote again.' },
   },
   required: ['type', 'text'],
@@ -212,6 +213,7 @@ function cleanQuestions(list) {
   for (const q of qs) {
     if (q.image && !q.image.startsWith('https://')) q.image = '';
     if (q.audio && !q.audio.startsWith('https://')) q.audio = '';
+    if (q.explanationImage && !q.explanationImage.startsWith('https://')) q.explanationImage = '';
     if (q.time && q.time < 5 && q.type !== 'info' && q.type !== 'scoreboard') q.time = 5;
   }
   if (!qs.length) throw new UserError('No valid questions.');
