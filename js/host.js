@@ -2,7 +2,7 @@
 import { h, svg, clear, qs, makePin, shuffle, baseUrl, normText, confirmBox, toast, zoomImage } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
-import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints, readTime } from './game.js';
+import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints, readTime, soundtrack } from './game.js';
 import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon, peakPennant } from './logo.js';
 import { hikerSvg, hash } from './hikers.js';
@@ -68,6 +68,7 @@ async function init() {
     return center(exclamationSvg(80), t('host.notFound'), h('a', { class: 'btn', href: 'studio.html' }, t('host.back')));
   }
   if (!quiz.questions?.length) return center(exclamationSvg(80), t('host.notFound'));
+  sound.use(soundtrack(quiz.settings));
 
   let restored = false;
   try {

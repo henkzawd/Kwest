@@ -56,8 +56,15 @@ export function readTime(settings) {
   return Number.isFinite(n) && n >= 1 && n <= 60 ? Math.round(n) : DEFAULT_READ_TIME;
 }
 
+// Lydspor: musikken på storskjermen. Flere kan komme (f.eks. «Jotunheimen»); «none» = bare lydeffekter.
+export const SOUNDTRACKS = ['whiteTiger', 'none'];
+export const DEFAULT_SOUNDTRACK = 'whiteTiger';
+export function soundtrack(settings) {
+  return SOUNDTRACKS.includes(settings?.soundtrack) ? settings.soundtrack : DEFAULT_SOUNDTRACK;
+}
+
 export function emptyQuiz() {
-  return { title: '', description: '', settings: { leaderboard: true, shuffle: false, finale: false, readTime: DEFAULT_READ_TIME }, questions: [newQuestion('quiz')] };
+  return { title: '', description: '', settings: { leaderboard: true, shuffle: false, finale: false, readTime: DEFAULT_READ_TIME, soundtrack: DEFAULT_SOUNDTRACK }, questions: [newQuestion('quiz')] };
 }
 
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v !== null ? Number(v) : d);
@@ -77,7 +84,7 @@ export function normalizeQuiz(raw) {
   const quiz = {
     title: str(raw.title) || 'Kwest',
     description: str(raw.description),
-    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle, finale: !!raw.settings?.finale, readTime: readTime(raw.settings) },
+    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle, finale: !!raw.settings?.finale, readTime: readTime(raw.settings), soundtrack: soundtrack(raw.settings) },
     questions: list.map(normalizeQuestion).filter(Boolean),
   };
   if (!quiz.questions.length) throw new Error('no-questions');

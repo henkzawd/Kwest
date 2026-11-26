@@ -20,7 +20,7 @@ const pick = a => a[Math.floor(rnd() * a.length)];
 const seq = s => s.trim().split(/\s+/).map(x => { const [n, l] = x.split(':'); return [n, +l]; });
 
 // ---------- Lydmotoren (brukes både live og til forhåndsvisning) ----------
-export function createEngine(ac, { cleanup = true } = {}) {
+export function createEngine(ac, { cleanup = true, soundtrack = 'whiteTiger' } = {}) {
   const E = {};
   const gain = (v = 1) => { const g = ac.createGain(); g.gain.value = v; return g; };
   const vol = gain(0.16);
@@ -158,134 +158,7 @@ export function createEngine(ac, { cleanup = true } = {}) {
     };
   };
 
-  // ---------- Stemningene ----------
-  const flutePhrase = (s, n, notes, vel) => {
-    let pos = n;
-    notes.forEach(([d, len]) => {
-      if (d !== null) {
-        const fq = typeof d === 'string' ? f(d) : deg(D4, d), v = vel * (0.9 + rnd() * 0.2), grace = len >= 3 && rnd() < 0.3;
-        s.at(pos, (t, sd) => {
-          if (grace) E.flute(s.out, t - 0.075, fq * 2 ** (2 / 12), 0.06, v * 0.7);
-          E.flute(s.out, t, fq, len * sd * 0.94, v);
-        });
-      }
-      pos += len;
-    });
-    return pos;
-  };
-  const melody = (s, n, list, vel) => flutePhrase(s, n, list.map(([x, l]) => [x === 'r' ? null : x, l]), vel);
-
-  const LOBBY_PHRASES = [ // trinn i D-moll-pentatonen (0 = D4), lengde i åttedeler
-    [[3, 2], [5, 2], [4, 1], [3, 1], [2, 2], [3, 6]],
-    [[5, 3], [6, 1], [7, 2], [6, 1], [5, 1], [4, 2], [5, 6]],
-    [[2, 2], [3, 1], [4, 1], [3, 4], [1, 2], [0, 6]],
-    [[7, 4], [8, 2], [7, 1], [6, 1], [5, 2], [3, 2], [5, 8]],
-    [[3, 1], [4, 1], [5, 2], [4, 2], [3, 2], [2, 2], [3, 2], [1, 4], [2, 6]],
-    [[5, 2], [3, 2], [4, 3], [5, 1], [2, 8]],
-  ];
-  const ARP = [0, 7, 12, 7, 0, 7, 12, 7];
-  const CAMP = seq(`A4:2 C5:2 D5:3 C5:1 A4:2 G4:2 F4:4 G4:2 A4:2 C5:2 D5:1 F5:1 D5:6 r:2
-    F5:2 D5:2 C5:3 A4:1 C5:2 D5:2 A4:4 G4:2 A4:1 G4:1 F4:2 D4:2 F4:6 r:2`);
-  const SUMMIT = seq(`F#5:2 A5:2 B5:2 A5:2 F#5:3 E5:1 D5:4 E5:2 F#5:2 A5:2 E5:2 D5:2 B4:2 A4:4
-    B4:2 D5:2 E5:3 F#5:1 A5:4 F#5:2 E5:2 D5:2 E5:1 D5:1 B4:2 A4:2 D5:8`);
-  const OSTINATO = [[-5, 0, -2, 0, -5, 1, -2, 0], [-6, -1, -3, -1, -6, 0, -3, -1], [-5, 0, -2, 0, -5, 1, -2, 0], [-4, 1, -2, 1, -4, 2, -1, 1]];
-
-  const SCENES = {
-    // Tempelporten: bordun, rolig klimpring, fløytefraser som kommer og går, vindspill.
-    lobby: {
-      bpm: () => 66,
-      setup(s, t) { s.drone = E.drone(s.out, t, [f('D2'), f('A2')], 0.5); s.next = 12; s.order = []; },
-      step(s, n, t) {
-        const k = n % 8, root = [0, -1, 1, -3][(n >> 3) % 4];
-        if (k === 0) E.pluck(s.out, t, deg(D3, root), 0.5, 2.4);
-        if (k === 3 && rnd() < 0.75) E.pluck(s.out, t, deg(D3, root + 3), 0.32, 2);
-        if (k === 5 && rnd() < 0.5) E.pluck(s.out, t, deg(D3, root + 5), 0.26, 2);
-        if (k === 6 && rnd() < 0.3) E.pluck(s.out, t, deg(D3, root + 4), 0.2, 2);
-        if (k === 0 && (n >> 3) % 2 === 0) E.drum(s.out, t, 0.32, 60);
-        if (rnd() < 0.03) E.chimes(s.out, t, 0.1);
-        if (n >= s.next) {
-          if (!s.order.length) s.order = [0, 1, 2, 3, 4, 5].sort(() => rnd() - 0.5);
-          s.next = flutePhrase(s, n, LOBBY_PHRASES[s.order.pop()], 0.55) + 6 + Math.floor(rnd() * 10);
-        }
-      },
-    },
-    // Klatringen: jevn klimprefigur og tromme. Tempo og lag øker når tiden renner ut (opts.p 0→1).
-    question: {
-      bpm: s => 86 + 40 * (s.opts.pre ? 0 : s.opts.p || 0) ** 1.4,
-      setup(s, t) { s.drone = E.drone(s.out, t, [f('D2'), f('A2')], 0.4); },
-      step(s, n, t) {
-        const pre = s.opts.pre, p = pre ? 0 : Math.min(1, s.opts.p || 0), k = n % 8;
-        const d = OSTINATO[(n >> 3) % 4][k];
-        E.pluck(s.out, t, deg(D4, d), (k === 0 ? 0.5 : k % 2 ? 0.28 : 0.38) * (pre ? 0.75 : 1) * (1 + p * 0.3), 1.1);
-        if (pre) return;
-        if (p > 0.6 && k % 2 === 0) E.pluck(s.out, t, deg(D4, d + 5), 0.16 + p * 0.1, 0.7);
-        const hits = p < 0.5 ? [0, 5] : p < 0.8 ? [0, 4, 5] : [0, 2, 4, 6, 7];
-        if (hits.includes(k)) E.drum(s.out, t, (k === 0 ? 0.48 : 0.32) * (1 + p * 0.3), 66);
-        if (p >= 0.35 && (k % 2 || p >= 0.7)) E.shaker(s.out, t, 0.1 + 0.2 * p);
-        if (k === 0) s.drone.bright(320 + 900 * p, t);
-        if (n % 32 === 16) flutePhrase(s, n, p < 0.7 ? [[3, 6], [2, 2], [3, 8]] : [[5, 3], [6, 1], [5, 4]], 0.4);
-      },
-      outro(s, t) { // siste slag når fasiten vises
-        E.drum(s.out, t, 0.65, 58);
-        [[D3 - 12, 0.4], [D3, 0.45], [D3 + 7, 0.35], [D4, 0.3]].forEach(([m, v]) => E.pluck(s.out, t, hz(m), v, 1.6));
-      },
-    },
-    // Fasit og diskusjon: bare bordun og spredte toner.
-    calm: {
-      bpm: () => 60,
-      setup(s, t) { s.drone = E.drone(s.out, t, [f('D2'), f('A2')], 0.35); },
-      step(s, n, t) {
-        const k = n % 8, root = [0, -1][(n >> 3) % 2];
-        if (k === 0) E.pluck(s.out, t, deg(D3, root), 0.34, 2.6);
-        if ((k === 3 || k === 6) && rnd() < 0.45) E.pluck(s.out, t, deg(D4, Math.floor(rnd() * 6)), 0.2, 2.2);
-        if (rnd() < 0.02) E.chimes(s.out, t, 0.08);
-      },
-    },
-    // Leirbålet: lysere (F-dur-pentaton), galopperende tromme og en fløytemelodi.
-    scoreboard: {
-      bpm: () => 92,
-      setup(s) { s.next = 8; s.cycle = 0; },
-      step(s, n, t) {
-        const k = n % 8, root = ['F3', 'D3', 'G3', 'D3', 'F3', 'D3', 'C3', 'F3'][(n >> 3) % 8];
-        E.pluck(s.out, t, hz(midi(root) + ARP[k]), k === 0 ? 0.42 : 0.26, 1.2);
-        if (k === 0 || k === 3 || k === 4) E.drum(s.out, t, k === 0 ? 0.42 : 0.26, 72);
-        if (k % 2) E.shaker(s.out, t, 0.1);
-        if (n === s.next) {
-          if (s.cycle < 2 || s.cycle % 2 === 0) melody(s, n, CAMP, 0.55);
-          s.cycle++; s.next += 64;
-        }
-      },
-    },
-    // Toppen: trommevirvel mens fjellene reiser seg, fanfare når gullet er på plass, så en rolig seiersmelodi.
-    podium: {
-      bpm: () => 84,
-      setup(s, t) {
-        for (let x = 0.15; x < 2.75; x += 0.055) E.drum(s.out, t + x, 0.06 + 0.32 * (x / 2.75) ** 1.5, (x * 18) % 2 < 1 ? 74 : 82);
-        s.drone = E.drone(s.out, t + 2.8, [f('D2'), f('A2')], 0.35);
-        s.next = 32; s.cycle = 0;
-      },
-      step(s, n, t, sd) {
-        if (n === 4) melody(s, n, seq('A4:1 D5:1 E5:1 F#5:1 A5:5 F#5:1 E5:1 F#5:1 D5:8'), 0.7);
-        if (n === 8) {
-          E.drum(s.out, t, 0.7, 60); E.bell(s.out, t, f('D6'), 0.25, 4);
-          ['D3', 'A3', 'D4', 'F#4'].forEach(x => E.horn(s.out, t, f(x), sd * 8, 0.3));
-        }
-        if (n === 16) { E.drum(s.out, t, 0.5, 64); ['G2', 'D3', 'B3'].forEach(x => E.horn(s.out, t, f(x), sd * 4, 0.26)); }
-        if (n === 20) { E.drum(s.out, t, 0.45, 64); ['A2', 'E3', 'C#4'].forEach(x => E.horn(s.out, t, f(x), sd * 4, 0.26)); }
-        if (n === 24) { E.drum(s.out, t, 0.55, 60); ['D3', 'A3', 'D4'].forEach(x => E.horn(s.out, t, f(x), sd * 8, 0.24)); E.chimes(s.out, t, 0.12); }
-        if (n < 32) return;
-        const k = n % 8, root = ['D3', 'D3', 'A2', 'G2', 'G2', 'D3', 'A2', 'D3'][((n - 32) >> 3) % 8];
-        E.pluck(s.out, t, hz(midi(root) + ARP[k]), k === 0 ? 0.36 : 0.22, 1.4);
-        if (k === 0) E.drum(s.out, t, 0.3, 64);
-        if (k === 4) E.drum(s.out, t, 0.18, 70);
-        if (rnd() < 0.025) E.chimes(s.out, t, 0.1);
-        if (n === s.next) {
-          if (s.cycle < 2 || s.cycle % 2 === 0) melody(s, n, SUMMIT, 0.5);
-          s.cycle++; s.next += 64;
-        }
-      },
-    },
-  };
+  let SCENES = {};
 
   // ---------- Effekter ----------
   let joinAt = 0, joinN = 0;
@@ -332,6 +205,8 @@ export function createEngine(ac, { cleanup = true } = {}) {
     def.setup(s, s.t);
     cur = s;
   };
+  // Bytt lydspor: det som spiller tones ut, og neste skjerm bruker det nye.
+  E.useSoundtrack = id => { SCENES = (SOUNDTRACKS[id] || SOUNDTRACKS.whiteTiger)(E); if (cur) { retire(cur, ac.currentTime); cur = null; } };
   E.tension = p => { if (cur?.name === 'question') cur.opts.p = p; };
   E.pump = (until, now = until - 1) => {
     while (gone.length && gone[0][0] < now) { const o = gone.shift()[1]; o.dry.disconnect(); o.wet.disconnect(); }
@@ -351,7 +226,147 @@ export function createEngine(ac, { cleanup = true } = {}) {
   E.duck = on => music.gain.setTargetAtTime(on ? 0 : 1, ac.currentTime, on ? 0.12 : 0.6);
   E.volume = v => vol.gain.setTargetAtTime(v * v, ac.currentTime, 0.05);
   E.scene = () => cur?.name || null;
+  E.useSoundtrack(soundtrack);
   return E;
+}
+
+// ---------- Lydspor ----------
+// Hvert lydspor lager sine egne stemninger (lobby, question, calm, scoreboard, podium) av instrumentene i motoren.
+// Nye lydspor (f.eks. «Jotunheimen») legges til her og i SOUNDTRACKS i game.js.
+const SOUNDTRACKS = {
+  whiteTiger, // Tempelet til den hvite tigeren: bambusfløyte, klimpret streng, tempeltromme og vindspill i D-moll-pentaton
+  none: () => ({}), // ingen musikk, bare lydeffekter
+};
+
+function whiteTiger(E) {
+// ---------- Stemningene ----------
+const flutePhrase = (s, n, notes, vel) => {
+  let pos = n;
+  notes.forEach(([d, len]) => {
+    if (d !== null) {
+      const fq = typeof d === 'string' ? f(d) : deg(D4, d), v = vel * (0.9 + rnd() * 0.2), grace = len >= 3 && rnd() < 0.3;
+      s.at(pos, (t, sd) => {
+        if (grace) E.flute(s.out, t - 0.075, fq * 2 ** (2 / 12), 0.06, v * 0.7);
+        E.flute(s.out, t, fq, len * sd * 0.94, v);
+      });
+    }
+    pos += len;
+  });
+  return pos;
+};
+const melody = (s, n, list, vel) => flutePhrase(s, n, list.map(([x, l]) => [x === 'r' ? null : x, l]), vel);
+
+const LOBBY_PHRASES = [ // trinn i D-moll-pentatonen (0 = D4), lengde i åttedeler
+  [[3, 2], [5, 2], [4, 1], [3, 1], [2, 2], [3, 6]],
+  [[5, 3], [6, 1], [7, 2], [6, 1], [5, 1], [4, 2], [5, 6]],
+  [[2, 2], [3, 1], [4, 1], [3, 4], [1, 2], [0, 6]],
+  [[7, 4], [8, 2], [7, 1], [6, 1], [5, 2], [3, 2], [5, 8]],
+  [[3, 1], [4, 1], [5, 2], [4, 2], [3, 2], [2, 2], [3, 2], [1, 4], [2, 6]],
+  [[5, 2], [3, 2], [4, 3], [5, 1], [2, 8]],
+];
+const ARP = [0, 7, 12, 7, 0, 7, 12, 7];
+const CAMP = seq(`A4:2 C5:2 D5:3 C5:1 A4:2 G4:2 F4:4 G4:2 A4:2 C5:2 D5:1 F5:1 D5:6 r:2
+  F5:2 D5:2 C5:3 A4:1 C5:2 D5:2 A4:4 G4:2 A4:1 G4:1 F4:2 D4:2 F4:6 r:2`);
+const SUMMIT = seq(`F#5:2 A5:2 B5:2 A5:2 F#5:3 E5:1 D5:4 E5:2 F#5:2 A5:2 E5:2 D5:2 B4:2 A4:4
+  B4:2 D5:2 E5:3 F#5:1 A5:4 F#5:2 E5:2 D5:2 E5:1 D5:1 B4:2 A4:2 D5:8`);
+const OSTINATO = [[-5, 0, -2, 0, -5, 1, -2, 0], [-6, -1, -3, -1, -6, 0, -3, -1], [-5, 0, -2, 0, -5, 1, -2, 0], [-4, 1, -2, 1, -4, 2, -1, 1]];
+
+return {
+  // Tempelporten: bordun, rolig klimpring, fløytefraser som kommer og går, vindspill.
+  lobby: {
+    bpm: () => 66,
+    setup(s, t) { s.drone = E.drone(s.out, t, [f('D2'), f('A2')], 0.5); s.next = 12; s.order = []; },
+    step(s, n, t) {
+      const k = n % 8, root = [0, -1, 1, -3][(n >> 3) % 4];
+      if (k === 0) E.pluck(s.out, t, deg(D3, root), 0.5, 2.4);
+      if (k === 3 && rnd() < 0.75) E.pluck(s.out, t, deg(D3, root + 3), 0.32, 2);
+      if (k === 5 && rnd() < 0.5) E.pluck(s.out, t, deg(D3, root + 5), 0.26, 2);
+      if (k === 6 && rnd() < 0.3) E.pluck(s.out, t, deg(D3, root + 4), 0.2, 2);
+      if (k === 0 && (n >> 3) % 2 === 0) E.drum(s.out, t, 0.32, 60);
+      if (rnd() < 0.03) E.chimes(s.out, t, 0.1);
+      if (n >= s.next) {
+        if (!s.order.length) s.order = [0, 1, 2, 3, 4, 5].sort(() => rnd() - 0.5);
+        s.next = flutePhrase(s, n, LOBBY_PHRASES[s.order.pop()], 0.55) + 6 + Math.floor(rnd() * 10);
+      }
+    },
+  },
+  // Klatringen: jevn klimprefigur og tromme. Tempo og lag øker når tiden renner ut (opts.p 0→1).
+  question: {
+    bpm: s => 86 + 40 * (s.opts.pre ? 0 : s.opts.p || 0) ** 1.4,
+    setup(s, t) { s.drone = E.drone(s.out, t, [f('D2'), f('A2')], 0.4); },
+    step(s, n, t) {
+      const pre = s.opts.pre, p = pre ? 0 : Math.min(1, s.opts.p || 0), k = n % 8;
+      const d = OSTINATO[(n >> 3) % 4][k];
+      E.pluck(s.out, t, deg(D4, d), (k === 0 ? 0.5 : k % 2 ? 0.28 : 0.38) * (pre ? 0.75 : 1) * (1 + p * 0.3), 1.1);
+      if (pre) return;
+      if (p > 0.6 && k % 2 === 0) E.pluck(s.out, t, deg(D4, d + 5), 0.16 + p * 0.1, 0.7);
+      const hits = p < 0.5 ? [0, 5] : p < 0.8 ? [0, 4, 5] : [0, 2, 4, 6, 7];
+      if (hits.includes(k)) E.drum(s.out, t, (k === 0 ? 0.48 : 0.32) * (1 + p * 0.3), 66);
+      if (p >= 0.35 && (k % 2 || p >= 0.7)) E.shaker(s.out, t, 0.1 + 0.2 * p);
+      if (k === 0) s.drone.bright(320 + 900 * p, t);
+      if (n % 32 === 16) flutePhrase(s, n, p < 0.7 ? [[3, 6], [2, 2], [3, 8]] : [[5, 3], [6, 1], [5, 4]], 0.4);
+    },
+    outro(s, t) { // siste slag når fasiten vises
+      E.drum(s.out, t, 0.65, 58);
+      [[D3 - 12, 0.4], [D3, 0.45], [D3 + 7, 0.35], [D4, 0.3]].forEach(([m, v]) => E.pluck(s.out, t, hz(m), v, 1.6));
+    },
+  },
+  // Fasit og diskusjon: bare bordun og spredte toner.
+  calm: {
+    bpm: () => 60,
+    setup(s, t) { s.drone = E.drone(s.out, t, [f('D2'), f('A2')], 0.35); },
+    step(s, n, t) {
+      const k = n % 8, root = [0, -1][(n >> 3) % 2];
+      if (k === 0) E.pluck(s.out, t, deg(D3, root), 0.34, 2.6);
+      if ((k === 3 || k === 6) && rnd() < 0.45) E.pluck(s.out, t, deg(D4, Math.floor(rnd() * 6)), 0.2, 2.2);
+      if (rnd() < 0.02) E.chimes(s.out, t, 0.08);
+    },
+  },
+  // Leirbålet: lysere (F-dur-pentaton), galopperende tromme og en fløytemelodi.
+  scoreboard: {
+    bpm: () => 92,
+    setup(s) { s.next = 8; s.cycle = 0; },
+    step(s, n, t) {
+      const k = n % 8, root = ['F3', 'D3', 'G3', 'D3', 'F3', 'D3', 'C3', 'F3'][(n >> 3) % 8];
+      E.pluck(s.out, t, hz(midi(root) + ARP[k]), k === 0 ? 0.42 : 0.26, 1.2);
+      if (k === 0 || k === 3 || k === 4) E.drum(s.out, t, k === 0 ? 0.42 : 0.26, 72);
+      if (k % 2) E.shaker(s.out, t, 0.1);
+      if (n === s.next) {
+        if (s.cycle < 2 || s.cycle % 2 === 0) melody(s, n, CAMP, 0.55);
+        s.cycle++; s.next += 64;
+      }
+    },
+  },
+  // Toppen: trommevirvel mens fjellene reiser seg, fanfare når gullet er på plass, så en rolig seiersmelodi.
+  podium: {
+    bpm: () => 84,
+    setup(s, t) {
+      for (let x = 0.15; x < 2.75; x += 0.055) E.drum(s.out, t + x, 0.06 + 0.32 * (x / 2.75) ** 1.5, (x * 18) % 2 < 1 ? 74 : 82);
+      s.drone = E.drone(s.out, t + 2.8, [f('D2'), f('A2')], 0.35);
+      s.next = 32; s.cycle = 0;
+    },
+    step(s, n, t, sd) {
+      if (n === 4) melody(s, n, seq('A4:1 D5:1 E5:1 F#5:1 A5:5 F#5:1 E5:1 F#5:1 D5:8'), 0.7);
+      if (n === 8) {
+        E.drum(s.out, t, 0.7, 60); E.bell(s.out, t, f('D6'), 0.25, 4);
+        ['D3', 'A3', 'D4', 'F#4'].forEach(x => E.horn(s.out, t, f(x), sd * 8, 0.3));
+      }
+      if (n === 16) { E.drum(s.out, t, 0.5, 64); ['G2', 'D3', 'B3'].forEach(x => E.horn(s.out, t, f(x), sd * 4, 0.26)); }
+      if (n === 20) { E.drum(s.out, t, 0.45, 64); ['A2', 'E3', 'C#4'].forEach(x => E.horn(s.out, t, f(x), sd * 4, 0.26)); }
+      if (n === 24) { E.drum(s.out, t, 0.55, 60); ['D3', 'A3', 'D4'].forEach(x => E.horn(s.out, t, f(x), sd * 8, 0.24)); E.chimes(s.out, t, 0.12); }
+      if (n < 32) return;
+      const k = n % 8, root = ['D3', 'D3', 'A2', 'G2', 'G2', 'D3', 'A2', 'D3'][((n - 32) >> 3) % 8];
+      E.pluck(s.out, t, hz(midi(root) + ARP[k]), k === 0 ? 0.36 : 0.22, 1.4);
+      if (k === 0) E.drum(s.out, t, 0.3, 64);
+      if (k === 4) E.drum(s.out, t, 0.18, 70);
+      if (rnd() < 0.025) E.chimes(s.out, t, 0.1);
+      if (n === s.next) {
+        if (s.cycle < 2 || s.cycle % 2 === 0) melody(s, n, SUMMIT, 0.5);
+        s.cycle++; s.next += 64;
+      }
+    },
+  },
+};
 }
 
 function impulse(ac, sec) { // etterklang som i en steinhall
@@ -375,7 +390,7 @@ let cfg = { muted: false, vol: DEFAULT_VOL };
 try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem(KEY)) }; } catch { /* ingen lagring */ }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch { /* ingen lagring */ } };
 
-let ac = null, eng = null, timer = null;
+let ac = null, eng = null, timer = null, track = 'whiteTiger';
 let want = { name: null, opts: {} };
 const playing = new Set();
 const running = () => ac && ac.state === 'running';
@@ -385,7 +400,7 @@ function boot() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   try { ac = new AC({ latencyHint: 'playback' }); } catch { return; }
-  eng = createEngine(ac);
+  eng = createEngine(ac, { soundtrack: track });
   eng.volume(cfg.vol);
   ac.onstatechange = () => { if (running()) { eng.setScene(want.name, want.opts); } refreshButton(); };
   timer = setInterval(() => { if (running()) eng.pump(ac.currentTime + 0.35, ac.currentTime); }, 60);
@@ -402,6 +417,8 @@ function boot() {
 }
 
 export const sound = {
+  // Velg lydspor (fra kwestets innstillinger).
+  use(id) { if (id === track) return; track = id; eng?.useSoundtrack(id); },
   scene(name, opts = {}) {
     if (want.name === name) Object.assign(want.opts, opts); else want = { name, opts: { ...opts } };
     boot();
