@@ -2,7 +2,7 @@
 import { h, svg, clear, qs, makePin, shuffle, baseUrl, normText, confirmBox, toast, zoomImage } from './util.js';
 import { t, langButton } from './i18n.js';
 import { backend } from './backend.js';
-import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints } from './game.js';
+import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints, readTime } from './game.js';
 import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon, peakPennant } from './logo.js';
 import { hikerSvg, hash } from './hikers.js';
@@ -14,7 +14,7 @@ const quizId = qs('id');
 const TEST = qs('test') === '1';
 const STORE = (TEST ? 'kwest-test-' : 'kwest-host-') + quizId;
 const BOTS = ['Bot Bjørn', 'Bot Berit', 'Bot Bendik', 'Bot Bodil', 'Bot Brage'];
-const INTRO_MS = 3000;
+const REVOTE_INTRO_MS = 3000; // ny stemmerunde: spørsmålet er allerede lest
 
 let quiz = null;
 let ch = null;
@@ -316,9 +316,10 @@ function goTo(i) {
   if (cur.type === 'scoreboard') { G.phase = 'scoreboard'; return commit(); }
   prepareQuestion(cur);
   G.phase = 'intro';
-  G.introEnd = Date.now() + INTRO_MS;
+  G.introMs = readTime(quiz.settings) * 1000; // lesetid, kan endres under ⚙ Innstillinger
+  G.introEnd = Date.now() + G.introMs;
   commit(); // mobilene får spørsmålet nå og starter selv etter «Gjør deg klar»
-  introTimer = setTimeout(startQuestion, INTRO_MS);
+  introTimer = setTimeout(startQuestion, G.introMs);
 }
 
 function prepareQuestion(cur) {
@@ -409,9 +410,10 @@ function revote() {
   G.answers = {};
   G.discussNow = false;
   G.phase = 'intro';
-  G.introEnd = Date.now() + INTRO_MS;
+  G.introMs = Math.min(REVOTE_INTRO_MS, readTime(quiz.settings) * 1000);
+  G.introEnd = Date.now() + G.introMs;
   commit();
-  introTimer = setTimeout(startQuestion, INTRO_MS);
+  introTimer = setTimeout(startQuestion, G.introMs);
 }
 
 function discussNow() {
@@ -715,7 +717,7 @@ function introTrail() {
   const d = 'M12 34 C 120 8, 220 40, 320 22 S 500 10, 566 26';
   return svg(`<svg class="intro-trail" viewBox="0 -4 600 52" aria-hidden="true">
     <path d="${d}" fill="none" stroke="#E7E4DA" stroke-width="7" stroke-linecap="round"/>
-    <path class="intro-trail-draw" d="${d}" pathLength="1" fill="none" stroke="#FFB424" stroke-width="7" stroke-linecap="round" style="animation-duration:${INTRO_MS}ms"/>
+    <path class="intro-trail-draw" d="${d}" pathLength="1" fill="none" stroke="#FFB424" stroke-width="7" stroke-linecap="round" style="animation-duration:${G.introMs || 3000}ms"/>
     ${peakPennant(567, 30, 0.27, 'iq')}
   </svg>`);
 }

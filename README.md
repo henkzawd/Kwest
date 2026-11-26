@@ -44,6 +44,7 @@ Andre funksjoner: lyd på spørsmål og infosider (lenke eller opplastet .mp3/.w
 
 - **Lag:** Velg antall lag (2–8) i lobbyen. Elevene fordeles tilfeldig og jevnt, og lagene konkurrerer på snittpoeng (så det er rettferdig selv om lagene er ulikt store).
 - **Diskuter med sidemannen:** Huk av **Diskusjon (to runder)** på et flervalg-, sant/usant- eller avstemningsspørsmål – eller trykk **💬 Diskuter** mens spørsmålet pågår. Elevene svarer, diskuterer, og svarer på nytt. Storskjermen viser svarene **før → etter**. Bare andre runde gir poeng.
+- **Lesetid:** Før elevene kan svare, vises spørsmålet alene på storskjermen i 6 sekunder. Under ⚙ Innstillinger kan du velge 3, 6, 10, 15 eller 20 sekunder for hvert kwest.
 - **Finale:** Slå på **Finale** under ⚙ Innstillinger, så teller det siste spørsmålet dobbelt og annonseres som «Finale!».
 - **Største klatrer:** Poengtavlen viser hvem som klatret flest plasser, og eleven får beskjed på mobilen.
 - **Reaksjoner:** Elevene kan sende 🐐 og ⛰️ som flyr over storskjermen i lobbyen og mellom spørsmålene. Slå av med knappen øverst på storskjermen.

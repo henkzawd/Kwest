@@ -139,12 +139,12 @@ assert.equal(saved.data.questions[0].type, 'wordcloud');
 assert.equal(saved.question_count, 8);
 
 got.questions[0].text = 'Hvilket middel er et betalaktam-antibiotikum?';
-r = await call('update_kwest', { id, title: 'Antibiotika 2', questions: got.questions, settings: { shuffle: true } });
+r = await call('update_kwest', { id, title: 'Antibiotika 2', questions: got.questions, settings: { shuffle: true, readTime: 10 } });
 assert.ok(!r.isError, r.content[0].text);
 assert.equal(saved.title, 'Antibiotika 2');
 assert.equal(saved.question_count, 7);
 assert.equal(saved.data.questions[0].text, 'Hvilket middel er et betalaktam-antibiotikum?');
-assert.deepEqual(saved.data.settings, { leaderboard: true, shuffle: true, finale: true });
+assert.deepEqual(saved.data.settings, { leaderboard: true, shuffle: true, finale: true, readTime: 10 });
 step('Claude kan finne, lese, utvide og endre kwestet');
 
 // 5. En kollega kan se, men ikke endre

@@ -48,8 +48,16 @@ export function newQuestion(type = 'quiz') {
   return q;
 }
 
+// Lesetid: sekunder spørsmålet vises på storskjermen før elevene kan svare.
+export const READ_TIMES = [3, 6, 10, 15, 20];
+export const DEFAULT_READ_TIME = 6;
+export function readTime(settings) {
+  const n = Number(settings?.readTime);
+  return Number.isFinite(n) && n >= 1 && n <= 60 ? Math.round(n) : DEFAULT_READ_TIME;
+}
+
 export function emptyQuiz() {
-  return { title: '', description: '', settings: { leaderboard: true, shuffle: false, finale: false }, questions: [newQuestion('quiz')] };
+  return { title: '', description: '', settings: { leaderboard: true, shuffle: false, finale: false, readTime: DEFAULT_READ_TIME }, questions: [newQuestion('quiz')] };
 }
 
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v !== null ? Number(v) : d);
@@ -69,7 +77,7 @@ export function normalizeQuiz(raw) {
   const quiz = {
     title: str(raw.title) || 'Kwest',
     description: str(raw.description),
-    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle, finale: !!raw.settings?.finale },
+    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle, finale: !!raw.settings?.finale, readTime: readTime(raw.settings) },
     questions: list.map(normalizeQuestion).filter(Boolean),
   };
   if (!quiz.questions.length) throw new Error('no-questions');
