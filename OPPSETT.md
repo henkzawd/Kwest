@@ -55,6 +55,8 @@ Claude legger verdiene inn i Kwest og publiserer på nytt.
 
 (Har Kwest fått nye funksjoner siden du kjørte `oppsett.sql`, kjør hele filen én gang til – det er trygt.)
 
+**Viktig (november 2026):** Kjør `oppsett.sql` én gang til nå. Det slår på **Resultater** (anonyme oppsummeringer etter hvert spill) og automatisk sletting av navn og e-post i gamle tilbakemeldinger.
+
 ---
 
 ## Del 3 – Første innlogging

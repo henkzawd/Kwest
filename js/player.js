@@ -105,11 +105,13 @@ function joinView(error = '') {
     h('form', { onsubmit: submit, class: 'join-form' },
       h('label', { class: 'join-label' }, needPin ? t('join.pin') : t('join.name')),
       input,
+      needPin ? null : h('p', { class: 'join-hint' }, t('join.nickHint')),
       msg,
       h('button', { class: 'btn primary huge', type: 'submit' }, needPin ? t('join.next') : t('join.go'))),
     h('div', { class: 'join-links' },
       h('a', { class: 'teacher-link', href: 'studio.html' }, t('join.teacher')),
-      h('button', { class: 'link teacher-link', type: 'button', onclick: () => feedbackDialog(null, 'elev') }, t('fb.button')))), { cls: 'center', hero: true });
+      h('button', { class: 'link teacher-link', type: 'button', onclick: () => feedbackDialog(null, 'elev') }, t('fb.button')),
+      h('a', { class: 'teacher-link', href: 'personvern.html' }, t('priv.link')))), { cls: 'center', hero: true });
   setTimeout(() => input.focus(), 50);
 }
 
@@ -161,6 +163,8 @@ function connect() {
     }
     S.joined = true;
     S.score = p.score || 0;
+    // Anonyme navn: læreren har gitt eleven et nytt navn (tegn skjermen på nytt så navnet oppdateres).
+    if (p.name && p.name !== S.name) { S.name = String(p.name).slice(0, 24); S.state = null; }
     if (p.answered && p.state) S.answered = akey(p.state);
     sessionStorage.setItem('kwest-player', JSON.stringify({ pin: S.pin, name: S.name, id: S.id }));
     keepAwake();

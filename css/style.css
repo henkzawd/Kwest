@@ -735,3 +735,19 @@ body.is-demo .react-bar { padding-bottom: 64px; }
 .ai-connect p { margin: 0; }
 .ai-manual summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
 .ai-manual > .stack { margin-top: 10px; }
+
+/* Personvern */
+.privacy-card { width: min(680px, 100%); text-align: left; align-items: stretch; }
+.privacy-card .auth-logo { align-self: center; }
+.privacy-card h1 { font-size: 1.6rem; margin: 0; text-align: center; }
+.privacy-card h2 { font-size: 1.05rem; margin: 6px 0 2px; }
+.privacy-card p { margin: 0; line-height: 1.5; }
+.privacy-card .btn { align-self: center; }
+.join-hint { color: var(--muted); font-size: .85rem; margin: -4px 0 0; text-align: center; }
+.auth-foot { margin-top: 6px; font-size: .85rem; }
+.auth-foot a { color: var(--muted); }
+
+/* Resultater etter spill */
+.sum-pick { max-width: 320px; }
+.sum-title { font-weight: 600; }
+.lobby-bar .btn.on { background: var(--gold-soft); }

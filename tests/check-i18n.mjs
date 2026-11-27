@@ -12,6 +12,7 @@ for (const f of readdirSync(new URL('../js', import.meta.url))) {
 }
 // Dynamiske nøkler
 for (const p of ['type.', 'typeDesc.']) for (const ty of ['quiz','truefalse','short','poll','wordcloud','slider','order','info']) used.add(p + ty);
+for (const k of ['students', 'after', 'homework', 'teachers', 'feedback', 'claude', 'storage', 'device', 'patients', 'contact']) { used.add('priv.' + k); used.add('priv.' + k + 'H'); }
 for (const k of ['soundtrack.whiteTiger','soundtrack.jotunheimen','soundtrack.none','val.noText','val.twoOptions','val.noCorrect','val.noAnswer','val.twoItems','val.slider','users.approved','users.admin']) used.add(k);
 let bad = 0;
 for (const k of used) { if (!no.has(k)) { console.log('Mangler norsk:', k); bad++; } if (!en.has(k)) { console.log('Mangler engelsk:', k); bad++; } }

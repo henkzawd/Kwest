@@ -194,3 +194,50 @@ revoke all on function public.get_assignment(text) from public;
 revoke all on function public.submit_assignment(text, integer, jsonb) from public;
 grant execute on function public.get_assignment(text) to anon, authenticated;
 grant execute on function public.submit_assignment(text, integer, jsonb) to anon, authenticated;
+
+-- Oppsummering etter hvert spill: bare samlede, anonyme tall per spørsmål.
+-- Ingen navn, ingen poeng per elev og ingen kobling mellom svar og person.
+create table if not exists public.sessions (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid references public.quizzes(id) on delete cascade,
+  owner uuid not null references public.profiles(id) on delete cascade default auth.uid(),
+  title text not null default '',
+  played_at timestamptz not null default now(),
+  players integer not null default 0 check (players between 0 and 10000),
+  summary jsonb not null default '{}'::jsonb check (octet_length(summary::text) < 300000)
+);
+create index if not exists sessions_quiz_idx on public.sessions(quiz_id);
+create index if not exists sessions_owner_idx on public.sessions(owner);
+alter table public.sessions enable row level security;
+
+drop policy if exists "sessions_owner_select" on public.sessions;
+create policy "sessions_owner_select" on public.sessions for select to authenticated
+  using (public.is_approved() and owner = auth.uid());
+drop policy if exists "sessions_owner_insert" on public.sessions;
+create policy "sessions_owner_insert" on public.sessions for insert to authenticated
+  with check (public.is_approved() and owner = auth.uid());
+drop policy if exists "sessions_owner_delete" on public.sessions;
+create policy "sessions_owner_delete" on public.sessions for delete to authenticated
+  using (public.is_approved() and owner = auth.uid());
+
+grant select, insert, delete on public.sessions to authenticated;
+
+-- Automatisk opprydding av personopplysninger:
+-- navn og e-post i tilbakemeldinger slettes etter 180 dager (selve meldingen beholdes).
+create or replace function public.cleanup_personal_data() returns void
+language sql security definer set search_path = '' as $$
+  update public.feedback set name = null, email = null
+  where (name is not null or email is not null) and created_at < now() - interval '180 days';
+$$;
+revoke all on function public.cleanup_personal_data() from public;
+grant execute on function public.cleanup_personal_data() to authenticated;
+
+-- Kjører oppryddingen hver natt hvis Supabase sin tidsplanlegger (pg_cron) er tilgjengelig.
+-- Ellers kjøres den hver gang en lærer åpner Kwest Studio.
+do $$
+begin
+  create extension if not exists pg_cron;
+  perform cron.schedule('kwest-opprydding', '17 3 * * *', 'select public.cleanup_personal_data()');
+exception when others then
+  raise notice 'Nattlig opprydding ikke slått på (%). Den kjøres i stedet når lærere åpner Kwest Studio.', sqlerrm;
+end $$;
