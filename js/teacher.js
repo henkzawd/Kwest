@@ -680,7 +680,7 @@ function drawPanel() {
 
   const tools = h('div', { class: 'panel-tools' },
     h('label', { class: 'field' }, h('span', null, t('ed.type')), select(TYPES.map(x => [x, TYPE_ICONS[x] + ' ' + t('type.' + x)]), q.type, changeType, ro)),
-    q.type !== 'info' && q.type !== 'scoreboard' ? h('label', { class: 'field' }, h('span', null, t('ed.time')), select(TIMES.map(s => [s, t('ed.seconds', { n: s })]), q.time, v => { q.time = Number(v); changed(); }, ro)) : null,
+    q.type !== 'info' && q.type !== 'scoreboard' ? h('label', { class: 'field' }, h('span', null, t('ed.time')), select([...new Set([...TIMES, q.time])].filter(Boolean).sort((a, b) => a - b).map(s => [s, t('ed.seconds', { n: s })]), q.time, v => { q.time = Number(v); changed(); }, ro)) : null,
     ['quiz', 'truefalse', 'short', 'slider', 'order'].includes(q.type) ? h('label', { class: 'field' }, h('span', null, t('ed.points')),
       select([['standard', t('ed.pStandard')], ['double', t('ed.pDouble')], ['none', t('ed.pNone')]], q.points, v => { q.points = v; changed(); }, ro)) : null,
     DISCUSS_TYPES.includes(q.type) ? h('label', { class: 'check discuss-check', title: t('ed.discussHelp') },
