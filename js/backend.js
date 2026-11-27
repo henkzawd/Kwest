@@ -108,6 +108,17 @@ function supabaseBackend() {
     async getAssignment(code) { return ok(await client.rpc('get_assignment', { p_code: code })); },
     async submitAssignment(code, score, answers) { return ok(await client.rpc('submit_assignment', { p_code: code, p_score: score, p_answers: answers })); },
 
+    // Anonyme oppsummeringer etter spill (bare samlede tall, ingen navn).
+    async saveSession(s) {
+      ok(await client.from('sessions').insert({ quiz_id: s.quiz_id, title: s.title, players: s.players, summary: s.summary }));
+    },
+    async listSessions() {
+      return ok(await client.from('sessions').select('id,quiz_id,title,played_at,players,summary').order('played_at', { ascending: false }).limit(500));
+    },
+    async deleteSession(id) { ok(await client.from('sessions').delete().eq('id', id)); },
+    // Sletter gamle personopplysninger (navn/e-post i tilbakemeldinger). Gjør ingenting hvis funksjonen mangler.
+    async cleanup() { await client.rpc('cleanup_personal_data'); },
+
     channel(pin) {
       const ch = client.channel('kwest-' + pin, { config: { broadcast: { self: false, ack: false } } });
       return {
@@ -218,7 +229,10 @@ function demoBackend() {
       write('kwest-demo-quizzes', list);
       return { id: row.id, owner: row.owner, updated_at: now };
     },
-    async deleteQuiz(id) { write('kwest-demo-quizzes', quizzes().filter(x => x.id !== id)); },
+    async deleteQuiz(id) {
+      write('kwest-demo-quizzes', quizzes().filter(x => x.id !== id));
+      write('kwest-demo-sessions', read('kwest-demo-sessions', []).filter(x => x.quiz_id !== id));
+    },
     async listProfiles() { return users().map(prof); },
     async sendFeedback(f) {
       const u = me();
@@ -258,6 +272,13 @@ function demoBackend() {
       write('kwest-demo-results', [...read('kwest-demo-results', []), { id: uid(), assignment_id: a.id, created_at: new Date().toISOString(), score, answers }]);
       return true;
     },
+
+    async saveSession(s) {
+      write('kwest-demo-sessions', [{ id: uid(), owner: current(), quiz_id: s.quiz_id, title: s.title, players: s.players, summary: s.summary, played_at: new Date().toISOString() }, ...read('kwest-demo-sessions', [])]);
+    },
+    async listSessions() { return read('kwest-demo-sessions', []).filter(x => x.owner === current()); },
+    async deleteSession(id) { write('kwest-demo-sessions', read('kwest-demo-sessions', []).filter(x => x.id !== id)); },
+    async cleanup() {},
 
     channel(pin) {
       const bc = new BroadcastChannel('kwest-' + pin);

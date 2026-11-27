@@ -1,6 +1,6 @@
 # Kwest ❗
 
-Kwest er en quiz-app for undervisning, i samme stil som Kahoot. Læreren viser spørsmålene på storskjerm, og elevene svarer på mobilen.
+Kwest er en quiz-app for undervisning. Læreren viser spørsmålene på storskjerm, og elevene svarer på mobilen.
 
 **Nettside:** https://kwestlog.vercel.app/ (elever) · https://kwestlog.vercel.app/studio (lærere)
 
@@ -20,7 +20,7 @@ Første gang: følg [OPPSETT.md](OPPSETT.md).
 2. Skriv navnet ditt og trykk **Bli med!** Mobilen viser turgåeren (eller geita) du fikk.
 3. Trykk på kortet med riktig svar (hvert svar har sin farge og sitt symbol: sol, bølge, lyng og måne). Raske riktige svar gir flest høydemeter (50–100 m per spørsmål).
 
-Navnene til elevene lagres ikke noe sted – de forsvinner når spillet er over (med mindre læreren selv laster ned resultatene).
+Navnene til elevene lagres ikke noe sted – de forsvinner når spillet er over (med mindre læreren selv laster ned resultatene). Med **🎭 Anonyme navn** (i lobbyen eller under ⚙ Innstillinger) får elevene et tilfeldig dyrenavn i stedet for navnet de skriver.
 
 Kwest er testet med 60 elever i samme spill.
 
@@ -58,6 +58,14 @@ Andre funksjoner: lyd på spørsmål og infosider (lenke eller opplastet .mp3/.w
 - **Etiketter:** Gi kwestene etiketter (f.eks. «Farmakologi» eller «4. semester») og trykk på en etikett i oversikten for å vise bare dem.
 - **Hent fra andre kwest:** Søk i alle kwest du har tilgang til og kopier enkeltspørsmål inn i ditt eget.
 - **Angre:** Angre- og gjør om-knappene (eller Ctrl+Z / Ctrl+Y) tar tilbake endringer i redigeringen.
+
+## Resultater etter timen
+
+Etter hvert spill lagres en **anonym oppsummering** under fanen **Resultater** i Kwest Studio (og under **📊 Resultater** på hvert kwest): hvor mange som var med, hvor mange prosent som svarte riktig på hvert spørsmål, vanligste gale svar og de vanskeligste spørsmålene. Ingen navn eller poeng per elev lagres. Oppsummeringen kan lastes ned til Excel. Bare læreren som holdt spillet ser den. Prøvekjøringer lagres ikke.
+
+## Personvern
+
+Se https://kwestlog.vercel.app/personvern. Kort fortalt: elevnavn lagres aldri, resultater lagres bare anonymt, og navn/e-post i tilbakemeldinger slettes automatisk etter 180 dager.
 
 ## Lage Kwest med AI (fra PowerPoint, PDF, artikler)
 

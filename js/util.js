@@ -166,8 +166,8 @@ export function readImage(file, maxSide = 1280, quality = 0.82) {
   });
 }
 
-export function download(filename, text) {
-  const a = h('a', { href: URL.createObjectURL(new Blob([text], { type: 'application/json' })), download: filename });
+export function download(filename, text, type = 'application/json') {
+  const a = h('a', { href: URL.createObjectURL(new Blob([text], { type })), download: filename });
   document.body.append(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);

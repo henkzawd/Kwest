@@ -120,6 +120,7 @@ const SETTINGS_SCHEMA = {
     leaderboard: { type: 'boolean', description: 'Show the leaderboard between questions (default true).' },
     shuffle: { type: 'boolean', description: 'Shuffle answer options (default false).' },
     finale: { type: 'boolean', description: 'The last scored question counts double (default false).' },
+    anonymous: { type: 'boolean', description: 'Students get random animal names instead of the names they type (default false). Only change if the teacher asks.' },
     readTime: { type: 'integer', minimum: 3, maximum: 20, description: 'Seconds the question is shown before students can answer (default 6). Use more for long questions.' },
     soundtrack: { type: 'string', enum: SOUNDTRACKS, description: 'Background music on the big screen: "whiteTiger" (Temple of the White Tiger: flute, temple drums; default), "jotunheimen" (Norwegian mountains: strings and horns in a romantic, Grieg-like style) or "none" (sound effects only). Only change if the teacher asks.' },
   },
@@ -226,6 +227,7 @@ const cleanSettings = (s, base = {}) => ({
   leaderboard: s?.leaderboard ?? base.leaderboard ?? true,
   shuffle: !!(s?.shuffle ?? base.shuffle),
   finale: !!(s?.finale ?? base.finale),
+  anonymous: !!(s?.anonymous ?? base.anonymous),
   readTime: readTime({ readTime: s?.readTime ?? base.readTime }),
   soundtrack: soundtrack({ soundtrack: s?.soundtrack ?? base.soundtrack }),
 });

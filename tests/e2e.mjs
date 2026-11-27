@@ -290,6 +290,7 @@ try {
   await host.locator('.tiles.revealed').waitFor();
   await host.getByRole('button', { name: /Toppen/ }).click();
   await host.locator('.podium-scene').waitFor();
+  await host.getByText('Anonym oppsummering lagret').waitFor();
   await host.waitForTimeout(3800);
   await shot(host, '22-pallen');
   const firstName = await host.locator('.summit.s1 .summit-name').textContent();
@@ -412,11 +413,67 @@ try {
   await p1.getByText('Leksen er stengt').waitFor();
   step('Hjemmelekse: elev tok leksen anonymt, læreren ser resultatet og kan stenge lenken');
 
+  // Resultater: anonym oppsummering fra spillet (prøvekjøringen lagres ikke)
+  await host.keyboard.press('Escape');
+  await host.locator('nav.tabs').getByRole('link', { name: 'Resultater' }).click();
+  await host.locator('.sum-item').first().waitFor();
+  if ((await host.locator('.sum-item').count()) !== 1) throw new Error('Skulle vært nøyaktig én oppsummering (prøvekjøring skal ikke lagres)');
+  const sumTop = await host.locator('.sum-item .hw-top').textContent();
+  if (!sumTop.includes('2 elever') || !sumTop.includes('% riktige svar')) throw new Error('Feil i oppsummeringen: ' + sumTop);
+  await host.locator('.sum-item summary').click();
+  await host.locator('.sum-item .hw-row').first().waitFor();
+  await shot(host, '31-resultater');
+  const stored = await host.evaluate(() => localStorage.getItem('kwest-demo-sessions'));
+  if (/Ola|Kari/.test(stored + await host.locator('.sum-item').textContent())) throw new Error('Navn i den anonyme oppsummeringen');
+  const [sumDl] = await Promise.all([host.waitForEvent('download'), host.getByRole('button', { name: /Last ned \(Excel\)/ }).click()]);
+  const sumCsv = readFileSync(await sumDl.path(), 'utf8');
+  if (!sumCsv.includes('Prosent riktige') || /Ola|Kari/.test(sumCsv)) throw new Error('Feil i oppsummeringsfil:\n' + sumCsv);
+  // Fra kortet: bare resultatene for dette kwestet
+  await host.locator('.sum-item .sum-title').click();
+  await host.waitForURL(/#\/resultater\/.+/);
+  await host.locator('.sum-item').first().waitFor();
+  step('Resultater: anonym oppsummering lagret etter spillet, uten navn, og kan lastes ned');
+
   // Engelsk
   await p2.goto(URL0);
   await p2.getByRole('button', { name: 'English' }).click();
   await p2.getByRole('button', { name: 'Next' }).waitFor();
   step('Språkbytte fungerer');
+  await p2.getByRole('button', { name: 'Norsk' }).click();
+
+  // Anonyme navn: eleven får et dyrenavn i stedet for det hun skrev
+  await host.goto(URL0 + 'studio.html');
+  await host.locator('.card .btn.primary').first().click();
+  await host.locator('.th-pin').waitFor();
+  const pin2 = (await host.locator('.th-pin').textContent()).replace(/\D/g, '');
+  await p2.goto(URL0 + '?pin=' + pin2);
+  await p2.getByText('Bruk gjerne et kallenavn').waitFor();
+  await p2.getByPlaceholder('Skriv navnet ditt').fill('Kari');
+  await p2.getByRole('button', { name: 'Bli med!' }).click();
+  await p2.locator('.banner', { hasText: 'Kari' }).waitFor();
+  await host.locator('.walker-name', { hasText: 'Kari' }).waitFor();
+  await host.getByRole('button', { name: /Anonyme navn: av/ }).click(); // Kari er allerede med og får nytt navn
+  await host.getByRole('button', { name: /Anonyme navn: på/ }).waitFor();
+  await p2.locator('.banner').filter({ hasNotText: 'Kari' }).waitFor();
+  await p1.goto(URL0 + '?pin=' + pin2);
+  await p1.getByPlaceholder('Skriv navnet ditt').fill('Ola');
+  await p1.getByRole('button', { name: 'Bli med!' }).click();
+  await p1.getByText('Klar for kwest!').waitFor();
+  const anon2 = (await p2.locator('.banner').textContent()).trim();
+  const anon1 = (await p1.locator('.banner').textContent()).trim();
+  await host.locator('.walker').nth(1).waitFor();
+  const onScreen = (await host.locator('.walker-name').allTextContents()).map(x => x.trim()).sort();
+  if (onScreen.join() !== [anon1, anon2].sort().join() || /Kari|Ola/.test(onScreen.join())) throw new Error(`Anonyme navn virket ikke: mobil «${anon1}», «${anon2}», storskjerm «${onScreen}»`);
+  await shot(host, '33-anonyme-navn');
+  step(`Anonyme navn: Kari ble «${anon2}», Ola ble «${anon1}»`);
+
+  // Personvernsiden
+  const p3 = await ctx.newPage(); await p3.setViewportSize(mob.viewport);
+  await p3.goto(URL0);
+  await p3.getByRole('link', { name: 'Personvern' }).click();
+  await p3.getByRole('heading', { name: 'Personvern i Kwest' }).waitFor();
+  await shot(p3, '32-personvern');
+  step('Personvernsiden vises');
 
   if (errors.length) throw new Error('Feil i nettleseren:\n' + errors.join('\n'));
   console.log('ALT OK');

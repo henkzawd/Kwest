@@ -15,6 +15,8 @@ let recovering = false;
 
 function errMsg(e) { return t('common.error', { msg: e?.message || String(e) }); }
 
+let cleaned = false;
+
 // ---------- Ruting ----------
 async function route() {
   if (recovering) return newPasswordView();
@@ -24,7 +26,9 @@ async function route() {
   if (!me) return authView('login', play ? t('auth.loginToPlay') : '');
   if (!me.profile?.approved) return pendingView();
   if (play && /^[\w-]+$/.test(play)) return location.replace('host.html?id=' + play);
+  if (!cleaned) { cleaned = true; backend.cleanup().catch(() => {}); } // sletter gamle personopplysninger
   const [, page, id] = (location.hash || '#/').split('/');
+  if (page === 'resultater') return resultsView(id || null);
   if (page === 'rediger' && id) return editorView(id);
   if (page === 'ny') return editorView(null);
   if (page === 'brukere' && me.profile.is_admin) return usersView();
@@ -49,6 +53,7 @@ function shell(content, active) {
       h('nav', { class: 'tabs' },
         tab('#/', 'mine', t('nav.mine')),
         tab('#/alle', 'all', t('nav.all')),
+        tab('#/resultater', 'results', t('nav.results')),
         isAdmin ? tab('#/brukere', 'users', t('nav.users')) : null,
         isAdmin ? tab('#/tilbakemeldinger', 'feedback', [t('nav.feedback'), h('span', { class: 'badge fb-count hidden' })]) : null),
       h('span', { class: 'spacer' }),
@@ -134,7 +139,8 @@ function authView(mode = 'login', notice = '') {
         mode === 'signup' ? name : null, email, mode !== 'forgot' ? pw : null, msg, info, btn),
       mode === 'login' ? h('button', { class: 'link', type: 'button', onclick: () => authView('forgot') }, t('auth.forgot')) : null,
       mode === 'forgot' ? h('button', { class: 'link', type: 'button', onclick: () => authView('login') }, t('auth.login')) : null,
-      mode === 'signup' && backend.mode === 'demo' ? h('p', { class: 'muted small-text' }, t('auth.firstAdmin')) : null)));
+      mode === 'signup' && backend.mode === 'demo' ? h('p', { class: 'muted small-text' }, t('auth.firstAdmin')) : null,
+      h('p', { class: 'auth-foot' }, h('a', { href: 'personvern.html' }, t('priv.link'))))));
 }
 
 function newPasswordView() {
@@ -291,6 +297,7 @@ function card(r, refresh) {
         editable ? [t('labels.title'), () => labelsDialog(r, refresh)] : null,
         ['🔗 ' + t('list.copyPlayLink'), async () => { if (await copyText(baseUrl() + 'host.html?id=' + r.id)) toast(t('list.playLinkCopied'), 'ok'); }],
         ['🧪 ' + t('test.button'), () => { location.href = 'host.html?id=' + r.id + '&test=1'; }],
+        ['📊 ' + t('sum.button'), () => { location.hash = '#/resultater/' + r.id; }],
         r.owner === me.user.id ? ['🏠 ' + t('hw.button'), () => homeworkDialog(r.id)] : null,
         [t('list.export'), () => exportRow(r)],
         editable ? [t('list.delete'), async () => {
@@ -598,6 +605,7 @@ function drawEditor() {
       h('button', { class: 'btn ghost', onclick: settingsDialog, disabled: E.readonly }, '⚙ ' + t('ed.settings')),
       E.readonly ? h('button', { class: 'btn ghost', onclick: () => copyQuiz({ id: E.id }) }, t('list.copy')) : null,
       E.readonly ? null : h('button', { class: 'btn ghost', title: t('hw.help'), onclick: () => homeworkDialog(E.id) }, '🏠 ' + t('hw.button')),
+      E.id ? h('a', { class: 'btn ghost', title: t('sum.help'), href: '#/resultater/' + E.id }, '📊 ' + t('sum.button')) : null,
       h('button', { class: 'btn ghost', title: t('test.help'), onclick: () => startGame(true) }, '🧪 ' + t('test.button')),
       startBtn),
     E.readonly ? h('p', { class: 'notice' }, t('ed.readonly', { name: E.ownerName || '?' })) : null,
@@ -1028,7 +1036,80 @@ function hwRow(x, full) {
       x.scored ? h('span', { class: 'hw-pct', style: { '--p': x.pct + '%' } }, h('span', null, x.n ? x.pct + ' %' : '–')) : h('span', { class: 'muted small-text' }, t('hw.nAnswers', { n: x.n }))),
     (full || !x.scored) && x.answers.length ? h('p', { class: 'small-text muted' }, (x.scored ? t('review.wrong') : t('hw.answers')) + ': ',
       x.answers.map((w, k) => [k ? ', ' : '', h('b', null, w.text), ' (' + w.n + ')'])) : null,
+    full && x.correct ? h('p', { class: 'small-text' }, '✓ ' + t('host.correctAnswer') + ': ', h('b', null, x.correct)) : null,
     full && x.q.explanation ? h('p', { class: 'small-text' }, '📖 ' + x.q.explanation) : null);
+}
+
+// ---------- Resultater: anonyme oppsummeringer etter hvert spill ----------
+async function resultsView(quizId) {
+  shell(h('div', { class: 'spinner' }), 'results');
+  let rows;
+  try { rows = await backend.listSessions(); }
+  catch (e) {
+    const missing = /sessions|relation|schema cache|does not exist/i.test(String(e?.message));
+    return shell(h('p', { class: 'form-error' }, missing ? t('sum.missing') : errMsg(e)), 'results');
+  }
+  const titles = {};
+  rows.forEach(r => { titles[r.quiz_id] ||= r.title; });
+  if (quizId && !titles[quizId]) titles[quizId] = await backend.getQuiz(quizId).then(r => r.title).catch(() => '');
+  const list = quizId ? rows.filter(r => r.quiz_id === quizId) : rows;
+  const ids = Object.keys(titles);
+  const picker = ids.length ? h('select', { class: 'sum-pick', 'aria-label': t('sum.pick'), onchange: e => { location.hash = '#/resultater' + (e.target.value ? '/' + e.target.value : ''); } },
+    h('option', { value: '' }, t('sum.allKwests')),
+    ids.map(id => h('option', { value: id, selected: id === quizId }, titles[id] || t('list.untitled')))) : null;
+  shell(h('div', { class: 'stack' },
+    h('div', { class: 'list-head' },
+      h('h1', null, quizId ? (titles[quizId] || t('list.untitled')) : t('nav.results')),
+      h('span', { class: 'spacer' }),
+      picker,
+      quizId ? h('a', { class: 'btn ghost', href: '#/rediger/' + quizId }, t('sum.openKwest')) : null),
+    h('p', { class: 'muted' }, t('sum.intro')),
+    list.length ? list.map(r => sessionItem(r, !quizId, () => resultsView(quizId)))
+      : h('div', { class: 'empty' }, questionSvg(70), h('p', null, t('sum.none')))), 'results');
+}
+
+function sessionStats(r) {
+  return (r.summary?.questions || []).map(x => {
+    const scored = typeof x.ok === 'number';
+    return { q: { type: x.type, text: x.text, explanation: x.explanation }, i: x.i, scored, n: x.n || 0, ok: x.ok || 0, none: x.none || 0,
+      pct: x.n ? Math.round(100 * (x.ok || 0) / x.n) : 0, answers: x.answers || [], correct: x.correct || '' };
+  });
+}
+
+function sessionItem(r, showTitle, refresh) {
+  const stats = sessionStats(r);
+  const scored = stats.filter(x => x.scored);
+  const tot = scored.reduce((s, x) => s + x.n, 0), ok = scored.reduce((s, x) => s + x.ok, 0);
+  const hard = scored.filter(x => x.n && x.pct < 100).sort((x, y) => x.pct - y.pct).slice(0, 3);
+  const when = fmtDate(r.played_at, lang) + ' · ' + new Date(r.played_at).toLocaleTimeString(lang === 'en' ? 'en-GB' : 'nb-NO', { hour: '2-digit', minute: '2-digit' });
+  return h('article', { class: 'hw-item sum-item' },
+    h('div', { class: 'hw-top' },
+      h('b', null, when),
+      showTitle ? h('a', { class: 'sum-title', href: '#/resultater/' + r.quiz_id }, r.title || t('list.untitled')) : null,
+      h('span', { class: 'muted' }, t('sum.players', { n: r.players })),
+      tot ? h('span', { class: 'muted' }, ' · ' + t('hw.avg', { n: Math.round(100 * ok / tot) })) : null),
+    stats.length ? h('details', { class: 'hw-results' },
+      h('summary', null, t('sum.show')),
+      hard.length ? h('div', { class: 'hw-hard' }, h('h4', null, '🔍 ' + t('hw.hardest')), hard.map(x => hwRow(x, true))) : null,
+      h('h4', null, t('hw.allQuestions')),
+      stats.map(x => hwRow(x, false))) : null,
+    h('div', { class: 'row' },
+      h('button', { class: 'btn ghost small', onclick: () => downloadSession(r, stats) }, [icon('download'), t('sum.download')]),
+      h('button', { class: 'btn ghost small danger-text', onclick: async () => {
+        if (!(await confirmBox(t('common.delete'), t('sum.deleteConfirm'), t('common.delete'), t('common.cancel')))) return;
+        try { await backend.deleteSession(r.id); refresh(); } catch (e) { toast(errMsg(e), 'bad'); }
+      } }, t('common.delete'))));
+}
+
+// Oppsummeringen som regneark (åpnes i Excel). Bare samlede tall – ingen navn.
+function downloadSession(r, stats) {
+  const esc = v => { const s = String(v ?? ''); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const head = [t('sum.colNr'), t('sum.colQuestion'), t('sum.colType'), t('sum.colAnswers'), t('sum.colPct'), t('sum.colNone'), t('host.correctAnswer'), t('sum.colCommon')];
+  const rows = stats.map(x => [x.i + 1, x.q.text || t('type.' + x.q.type), t('type.' + x.q.type), x.n, x.scored ? x.pct : '', x.scored ? x.none : '', x.correct,
+    x.answers.map(w => `${w.text} (${w.n})`).join(', ')]);
+  const csv = '\ufeff' + [head, ...rows].map(row => row.map(esc).join(';')).join('\r\n');
+  const name = (r.title || 'kwest').replace(/[^\wæøåÆØÅ\- ]+/g, '').trim().replace(/\s+/g, '-');
+  download(`${name}-oppsummering-${String(r.played_at).slice(0, 10)}.csv`, csv, 'text/csv;charset=utf-8');
 }
 
 function settingsDialog() {
@@ -1050,6 +1131,8 @@ function settingsDialog() {
       h('select', { onchange: e => { q.settings.soundtrack = e.target.value; changed(); } },
         SOUNDTRACKS.map(id => h('option', { value: id, selected: id === soundtrack(q.settings) }, t('soundtrack.' + id)))),
       h('small', { class: 'muted' }, t('ed.soundtrackHelp'))),
+    h('label', { class: 'check top' }, h('input', { type: 'checkbox', checked: !!q.settings.anonymous, onchange: e => { q.settings.anonymous = e.target.checked; changed(); } }),
+      h('span', null, h('b', null, '🎭 ' + t('ed.anonymous')), h('small', { class: 'muted block' }, t('ed.anonymousHelp')))),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.leaderboard, onchange: e => { q.settings.leaderboard = e.target.checked; changed(); } }), t('ed.leaderboard')),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.shuffle, onchange: e => { q.settings.shuffle = e.target.checked; changed(); } }), t('ed.shuffle')),
     h('label', { class: 'check top' }, h('input', { type: 'checkbox', checked: !!q.settings.finale, onchange: e => { q.settings.finale = e.target.checked; changed(); } }),

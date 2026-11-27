@@ -84,7 +84,7 @@ export function normalizeQuiz(raw) {
   const quiz = {
     title: str(raw.title) || 'Kwest',
     description: str(raw.description),
-    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle, finale: !!raw.settings?.finale, readTime: readTime(raw.settings), soundtrack: soundtrack(raw.settings) },
+    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle, finale: !!raw.settings?.finale, anonymous: !!raw.settings?.anonymous, readTime: readTime(raw.settings), soundtrack: soundtrack(raw.settings) },
     questions: list.map(normalizeQuestion).filter(Boolean),
   };
   if (!quiz.questions.length) throw new Error('no-questions');

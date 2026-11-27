@@ -37,6 +37,8 @@ const G = {
   reactions: true,
   round: 1, first: null, firstN: 0, discussNow: false, // «diskuter og stem igjen»
   climber: null, // { id, n } største klatrer på siste spørsmål
+  anon: false, // anonyme navn: elevene får et tilfeldig dyrenavn i stedet for det de skrev
+  saved: false, // anonym oppsummering er lagret
 };
 let reviewAt = -1; // gjennomgang av de vanskeligste spørsmålene etter pallen
 
@@ -77,7 +79,7 @@ async function init() {
     const saved = JSON.parse(sessionStorage.getItem(STORE));
     if (saved && saved.pin && saved.phase !== 'podium') { Object.assign(G, saved); restored = true; }
   } catch { /* ignorer */ }
-  if (!G.pin) G.pin = makePin();
+  if (!G.pin) { G.pin = makePin(); G.anon = !!quiz.settings?.anonymous; }
 
   // To kanaler: «ut» (læreren → alle elever) og «inn» (elever → bare læreren).
   if (TEST) {
@@ -123,14 +125,40 @@ function onJoin(p) {
   const name = String(p.name || '').replace(/\s+/g, ' ').trim().slice(0, 15);
   if (!id || !name) return;
   const existing = G.players[id];
-  if (existing) return reply(id, { ok: true, score: existing.score, answered: !!G.answers[id] });
+  if (existing) return reply(id, { ok: true, score: existing.score, answered: !!G.answers[id], name: existing.name });
   if (G.locked) return reply(id, { ok: false, error: 'locked' });
-  if (Object.values(G.players).some(pl => pl.name.toLowerCase() === name.toLowerCase())) return reply(id, { ok: false, error: 'taken' });
-  G.players[id] = { name, score: 0, streak: 0, ok: null, pts: 0, answered: false, joinedAt: Date.now(), history: {} };
+  if (!G.anon && Object.values(G.players).some(pl => pl.name.toLowerCase() === name.toLowerCase())) return reply(id, { ok: false, error: 'taken' });
+  // Anonyme navn: det eleven skrev brukes ikke (og lagres ikke) – eleven får et tilfeldig navn.
+  const shown = G.anon ? anonName() : name;
+  G.players[id] = { name: shown, score: 0, streak: 0, ok: null, pts: 0, answered: false, joinedAt: Date.now(), history: {} };
   if (G.teams) G.teamOf[id] = smallestTeam();
-  reply(id, { ok: true, score: 0 });
+  reply(id, { ok: true, score: 0, name: shown });
   persist();
   if (G.phase === 'lobby') { sound.sfx('join'); renderLobby(); } else updateCount();
+}
+
+// ---------- Anonyme navn ----------
+function anonName() {
+  const adj = t('anon.adj').split(','), animals = t('anon.animals').split(',');
+  const pick = list => list[Math.floor(Math.random() * list.length)].trim();
+  const taken = new Set(Object.values(G.players).map(pl => pl.name.toLowerCase()));
+  for (let k = 0; k < 60; k++) {
+    const n = pick(adj) + ' ' + pick(animals).toLowerCase();
+    if (!taken.has(n.toLowerCase())) return n;
+  }
+  for (let k = taken.size + 1; ; k++) if (!taken.has((t('anon.fallback') + ' ' + k).toLowerCase())) return t('anon.fallback') + ' ' + k;
+}
+function toggleAnon() {
+  if (G.phase !== 'lobby') return;
+  G.anon = !G.anon;
+  // Slås det på når noen allerede er med, får de også nye navn (de ekte navnene glemmes).
+  if (G.anon) {
+    const ids = playerIds();
+    ids.forEach(id => { G.players[id].name = ''; });
+    ids.forEach(id => { G.players[id].name = anonName(); reply(id, { ok: true, score: G.players[id].score, name: G.players[id].name }); });
+  }
+  persist();
+  render();
 }
 
 // Alt som går fra storskjermen til mobilene samles i én melding, maks omtrent én gang i sekundet.
@@ -521,7 +549,48 @@ function podium() {
   clearInterval(tick);
   G.phase = 'podium';
   commit();
+  saveSummary();
   sessionStorage.removeItem(STORE);
+}
+
+// ---------- Anonym oppsummering til Kwest Studio ----------
+// Bare samlede tall per spørsmål: ingen navn, ingen poeng per elev og ingen kobling mellom svar og person.
+function buildSummary() {
+  const ids = playerIds();
+  const questions = [];
+  quiz.questions.forEach((x, i) => {
+    if (x.type === 'info' || x.type === 'scoreboard') return;
+    const cur = qAt(i);
+    const hist = ids.map(id => G.players[id].history?.[i]).filter(Boolean);
+    if (!hist.length) return; // ikke spilt, eller ingen svarte
+    const scored = SCORED.includes(cur.type);
+    const groups = {};
+    const add = txt => { const k = normText(txt); if (k) (groups[k] ||= { text: String(txt).slice(0, 80), n: 0 }).n++; };
+    hist.forEach(hh => {
+      if (scored) { if (!hh.ok && hh.a) add(hh.a); }
+      else if (cur.type === 'wordcloud') String(hh.a || '').split(', ').forEach(add);
+      else add(hh.a);
+    });
+    const ans = correctAnswer(cur);
+    const item = {
+      i, type: cur.type, text: String(cur.text || '').slice(0, 300), explanation: String(cur.explanation || '').slice(0, 600),
+      correct: ans.tf !== undefined ? (ans.tf ? t('ed.true') : t('ed.false')) : String(ans.correct || '').slice(0, 300),
+      n: hist.length,
+      answers: Object.values(groups).sort((a, b) => b.n - a.n).slice(0, cur.type === 'wordcloud' ? 15 : 6),
+    };
+    if (scored) { item.ok = hist.filter(hh => hh.ok).length; item.none = hist.filter(hh => !hh.a).length; }
+    questions.push(item);
+  });
+  return { v: 1, teams: G.teams || 0, questions };
+}
+
+async function saveSummary() {
+  if (TEST || G.saved || !playerIds().length) return;
+  G.saved = true;
+  try {
+    await backend.saveSession({ quiz_id: quizId, title: quiz.title || '', players: playerIds().length, summary: buildSummary() });
+    toast(t('sum.saved'), 'ok');
+  } catch (e) { console.warn('Lagret ikke oppsummeringen:', e?.message || e); }
 }
 
 async function endGame() {
@@ -609,6 +678,7 @@ function renderLobbyInto(main) {
       h('span', { class: 'spacer' }),
       h('label', { class: 'team-pick' }, icon('team'), h('select', { 'aria-label': t('host.teams'), onchange: e => setTeams(Number(e.target.value)) },
         [0, 2, 3, 4, 5, 6, 7, 8].map(n => h('option', { value: n, selected: n === G.teams }, n ? t('host.nTeams', { n }) : t('host.noTeams'))))),
+      TEST ? null : h('button', { class: 'btn ghost' + (G.anon ? ' on' : ''), title: t('host.anonHelp'), 'aria-pressed': String(G.anon), onclick: toggleAnon }, '🎭 ' + (G.anon ? t('host.anonOn') : t('host.anonOff'))),
       h('button', { class: 'btn ghost', onclick: () => { G.locked = !G.locked; persist(); render(); } }, G.locked ? [icon('lock'), t('host.unlock')] : [icon('unlock'), t('host.lock')]),
       h('button', { class: 'btn primary big', onclick: next }, t('host.start'))),
     G.teams ? h('div', { class: 'team-legend' }, [...Array(G.teams).keys()].map(ti =>

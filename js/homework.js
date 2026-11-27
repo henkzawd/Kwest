@@ -43,7 +43,7 @@ function intro() {
     h('h1', null, H.title),
     h('p', null, t('hw.introText', { n })),
     h('button', { class: 'btn primary huge', onclick: () => go(0) }, t('hw.start')),
-    h('p', { class: 'muted small-text' }, t('hw.anon')));
+    h('p', { class: 'muted small-text' }, t('hw.anon'), ' ', h('a', { href: 'personvern.html' }, t('priv.link'))));
 }
 
 function go(i) {
