@@ -19,8 +19,11 @@ function errMsg(e) { return t('common.error', { msg: e?.message || String(e) });
 async function route() {
   if (recovering) return newPasswordView();
   me = await backend.session().catch(() => null);
-  if (!me) return authView();
+  // Kom læreren hit fra en spillelenke uten å være innlogget? Da går vi rett videre til quizen etter innlogging.
+  const play = new URLSearchParams(location.search).get('spill');
+  if (!me) return authView('login', play ? t('auth.loginToPlay') : '');
   if (!me.profile?.approved) return pendingView();
+  if (play && /^[\w-]+$/.test(play)) return location.replace('host.html?id=' + play);
   const [, page, id] = (location.hash || '#/').split('/');
   if (page === 'rediger' && id) return editorView(id);
   if (page === 'ny') return editorView(null);
@@ -286,6 +289,7 @@ function card(r, refresh) {
       moreMenu([
         editable ? [t('list.copy'), () => copyQuiz(r)] : null,
         editable ? [t('labels.title'), () => labelsDialog(r, refresh)] : null,
+        ['🔗 ' + t('list.copyPlayLink'), async () => { if (await copyText(baseUrl() + 'host.html?id=' + r.id)) toast(t('list.playLinkCopied'), 'ok'); }],
         ['🧪 ' + t('test.button'), () => { location.href = 'host.html?id=' + r.id + '&test=1'; }],
         r.owner === me.user.id ? ['🏠 ' + t('hw.button'), () => homeworkDialog(r.id)] : null,
         [t('list.export'), () => exportRow(r)],
