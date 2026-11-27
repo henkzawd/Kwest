@@ -59,6 +59,8 @@ async function init() {
   if (backend.mode === 'demo') { document.body.classList.add('is-demo'); document.body.append(h('div', { class: 'demo-banner' }, t('demo.banner'))); }
   center(h('div', { class: 'spinner' }), t('host.loading'));
   const sess = await backend.session().catch(() => null);
+  // Ikke innlogget (f.eks. ny PC): send læreren til innlogging, og så rett tilbake hit.
+  if (!sess) return location.replace('studio.html?spill=' + encodeURIComponent(quizId || ''));
   if (!sess?.profile?.approved) return center(exclamationSvg(80), t('host.loginFirst'), h('a', { class: 'btn primary', href: 'studio.html' }, t('auth.login')));
   try {
     const row = await backend.getQuiz(quizId);
