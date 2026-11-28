@@ -1,11 +1,12 @@
 // Storskjermen: læreren starter spillet, viser spørsmål, resultater og pallen.
 import { h, svg, clear, qs, makePin, shuffle, baseUrl, normText, confirmBox, toast, zoomImage } from './util.js';
-import { t, langButton } from './i18n.js';
+import { t, langButton, useTheme } from './i18n.js';
 import { backend } from './backend.js';
-import { COLORS, SHAPES, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints, readTime, soundtrack } from './game.js';
+import { SHAPES, CLOUD_COLORS, SCORED, DISCUSS_TYPES, TEAM_COLORS, REACTIONS, answerStyle, themeOf, units, finaleIndex, colorIndex, playable, judge, speedPoints, basePoints, readTime, soundtrack } from './game.js';
 import { icon } from './icons.js';
 import { wordmark, exclamationSvg, questionSvg, setFavicon, peakPennant } from './logo.js';
 import { hikerSvg, hash } from './hikers.js';
+import { citizenSvg, cityLobbyScene, cityBoardBackdrop, cityPodiumScene, podiumLabelAt, CITY_FACADES } from './city.js';
 import { sound } from './music.js';
 
 setFavicon();
@@ -41,6 +42,7 @@ const G = {
   saved: false, // anonym oppsummering er lagret
 };
 let reviewAt = -1; // gjennomgang av de vanskeligste spørsmålene etter pallen
+let CITY = false; // temaet «Metropolis» i stedet for «Fjell»
 
 // Spørsmål nr. i klart for spilling (finalen får dobbel poeng).
 function qAt(i) {
@@ -73,6 +75,7 @@ async function init() {
   }
   if (!quiz.questions?.length) return center(exclamationSvg(80), t('host.notFound'));
   sound.use(soundtrack(quiz.settings));
+  CITY = useTheme(themeOf(quiz.settings)) === 'city';
 
   let restored = false;
   try {
@@ -243,7 +246,7 @@ function rankedTeams() {
   return list;
 }
 
-// ---------- Reaksjoner (🐐 og ⛰️) ----------
+// ---------- Reaksjoner (🐐 og ⛰️, eller verdiene i Metropolis) ----------
 const REACT_PHASES = ['lobby', 'reveal', 'scoreboard', 'podium', 'discuss'];
 const lastReact = {};
 let floating = 0;
@@ -285,6 +288,7 @@ function ranked() {
 
 function statePayload() {
   const st = { phase: G.phase, qi: G.qi, total: quiz ? total() : 0, round: G.round, rx: G.reactions };
+  if (CITY) st.th = 'city'; // mobilene bytter til samme tema
   if (G.teams) st.teams = { n: G.teams, of: G.teamOf };
   const cur = q();
   const qInfo = () => ({ type: cur.type, labels: G.labels, maxWords: cur.maxWords, min: cur.min, max: cur.max, step: cur.step, unit: cur.unit, finale: isFinale() || undefined });
@@ -388,7 +392,8 @@ function botsAnswer() {
   const cur = q(), qi = G.qi, round = G.round;
   const limit = Math.max(2000, cur.time * 1000 * 0.7);
   Object.keys(G.players).forEach(id => {
-    setTimeout(() => onAnswer({ id, qi, round, value: botValue(cur) }), 1200 + Math.random() * Math.min(limit, 9000));
+    // Hoppet læreren videre før testeleven rakk å svare, svarer den ikke.
+    setTimeout(() => { if (G.phase === 'question' && G.qi === qi && G.round === round) onAnswer({ id, qi, round, value: botValue(cur) }); }, 1200 + Math.random() * Math.min(limit, 9000));
   });
 }
 function botValue(cur) {
@@ -412,7 +417,7 @@ function botValue(cur) {
 function botReact() {
   if (!G.reactions || !REACT_PHASES.includes(G.phase) || Math.random() < 0.5) return;
   const id = Object.keys(G.players).filter(x => x.startsWith('bot'))[Math.floor(Math.random() * BOTS.length)];
-  if (id) onReact({ id, g: Math.floor(Math.random() * 3), p: Math.floor(Math.random() * 2) });
+  if (id) onReact({ id, ...Object.fromEntries(Object.keys(REACTIONS).map(k => [k, Math.floor(Math.random() * 3)])) });
 }
 
 function startTicker() {
@@ -617,7 +622,7 @@ function topbar() {
     h('span', { class: 'spacer' }),
     h('span', { class: 'hbar-count' }, icon('user'), h('span', { class: 'hbar-n' }, playerIds().length)),
     h('button', { class: 'btn ghost small react-toggle' + (G.reactions ? ' on' : ''), title: t('host.reactionsHelp'), 'aria-pressed': String(G.reactions), onclick: toggleReactions },
-      REACTIONS.g + ' ' + (G.reactions ? t('host.reactionsOn') : t('host.reactionsOff'))),
+      Object.values(REACTIONS)[0] + ' ' + (G.reactions ? t('host.reactionsOn') : t('host.reactionsOff'))),
     sound.controls(),
     langButton(render),
     h('button', { class: 'icon-btn', title: t('host.fullscreen'), 'aria-label': t('host.fullscreen'), onclick: toggleFullscreen }, icon('expand')),
@@ -657,9 +662,9 @@ function qrSvg(text) {
 // Ventesiden: elevene dukker opp som turgåere spredt utover marka ved foten av fjellet.
 function renderLobbyInto(main) {
   const ids = playerIds();
-  const scene = h('section', { class: 'trailhead' }, lobbyScene(),
+  const scene = h('section', { class: 'trailhead' + (CITY ? ' city' : '') }, CITY ? cityLobbyScene() : lobbyScene(),
     h('h1', { class: 'scene-title day th-title' }, quiz.title),
-    h('div', { class: 'th-sign' },
+    CITY ? cityJoinCard() : h('div', { class: 'th-sign' },
       h('div', { class: 'th-post' }),
       h('div', { class: 'th-arrow' + (TEST ? ' test' : '') }, svg(woodSvg('arrow', 400, 180, 7)),
         TEST ? h('div', { class: 'th-text' }, h('small', null, '🧪 ' + t('test.title')), h('p', null, t('test.text')))
@@ -670,7 +675,8 @@ function renderLobbyInto(main) {
       TEST ? null : h('div', { class: 'th-qrboard th-qr', title: t('host.orScan') }, svg(woodSvg('board', 200, 210, 3)),
         h('div', { class: 'th-paper' }, qrSvg(joinUrl())))),
     walkers(ids),
-    !ids.length ? h('p', { class: 'th-waiting' }, h('span', { class: 'spinner small' }), t('host.waiting')) : null);
+    !ids.length ? h('p', { class: 'th-waiting' }, h('span', { class: 'spinner small' }), t('host.waiting')) : null,
+    CITY ? h('div', { class: 'snow', 'aria-hidden': 'true' }) : null);
   put(main, scene,
     h('section', { class: 'lobby-bar' },
       h('span', { class: 'lobby-count' }, t('host.players', { n: ids.length })),
@@ -685,6 +691,17 @@ function renderLobbyInto(main) {
       h('span', { class: 'team-badge', style: { background: TEAM_COLORS[ti] } }, teamName(ti) + ' · ' + ids.filter(id => G.teamOf[id] === ti).length))) : null);
 }
 
+// Metropolis: et frostet glasskilt med koden og QR-koden i stedet for treskiltet.
+function cityJoinCard() {
+  return h('div', { class: 'city-card' + (TEST ? ' test' : '') },
+    TEST ? h('div', { class: 'city-card-text' }, h('small', null, '🧪 ' + t('test.title')), h('p', null, t('test.text')))
+      : [h('div', { class: 'city-card-text' },
+        h('small', null, t('host.pin')),
+        h('strong', { class: 'th-pin' }, G.pin.slice(0, 3) + ' ' + G.pin.slice(3)),
+        h('span', null, t('host.joinAt'), ' ', h('b', null, joinHost()))),
+      h('div', { class: 'city-qr', title: t('host.orScan') }, qrSvg(joinUrl()))]);
+}
+
 // Plassene på marka er en fast, men tilfeldig utseende rekkefølge (ut fra PIN-en), så ingen hopper rundt når flere kommer.
 // Få elever: store figurer med god plass. Mange elever: mindre figurer tettere.
 function walkers(ids) {
@@ -692,7 +709,8 @@ function walkers(ids) {
   if (!n) return [];
   const [cols, rows, size] = n <= 15 ? [7, 3, 1] : n <= 35 ? [10, 4, 0.8] : [13, 5, 0.66];
   const cells = [...Array(cols * rows).keys()].sort((a, b) => hash(G.pin + ':' + a) - hash(G.pin + ':' + b));
-  const X0 = 25, X1 = 96, Y0 = 64, Y1 = 95; // marka, i prosent av bildet (venstre side er skiltet)
+  // marka (eller brygga i Metropolis), i prosent av bildet (venstre side er skiltet)
+  const [X0, X1, Y0, Y1] = CITY ? [37, 97, 76, 97] : [25, 96, 64, 95];
   return ids.map((id, i) => {
     const cell = cells[i % cells.length];
     const hv = hash(id);
@@ -706,7 +724,7 @@ function walkers(ids) {
     return h('button', {
       class: 'walker' + (isNew ? ' new' : ''), type: 'button', title: G.players[id].name, onclick: () => kick(id),
       style: { left: (X0 + (X1 - X0) * Math.min(1, Math.max(0, cx))) + '%', top: top + '%', zIndex: Math.round(top * 10), '--k': (size * (0.84 + 0.16 * (top - Y0) / (Y1 - Y0))).toFixed(3) },
-    }, h('span', { class: 'walker-name' }, G.players[id].name), hikerSvg(id, color));
+    }, h('span', { class: 'walker-name' }, G.players[id].name), (CITY ? citizenSvg : hikerSvg)(id, color));
   });
 }
 
@@ -833,7 +851,7 @@ function tiles(cur, opts = {}) {
     labels.map((label, i) => {
       const ci = colorIndex(cur.type, i);
       const correct = opts.correct?.[i];
-      const style = { '--c': COLORS[ci] };
+      const style = answerStyle(ci);
       if (opts.counts) style['--p'] = pct(opts.counts, i) + '%';
       if (opts.first) style['--f'] = pct(opts.first, i) + '%';
       return h('div', { class: 'tile' + (opts.reveal && correct === false ? ' dim' : '') + (opts.reveal && correct ? ' ok' : ''), style },
@@ -928,7 +946,7 @@ function renderReveal(main) {
     body = h('div', { class: 'reveal-wrap' },
       h('ol', { class: 'order-list' }, cur.items.map((it, i) => {
         const d = G.map.indexOf(i);
-        return h('li', { style: { '--c': COLORS[d] } }, h('span', { class: 'shape' }, svg(SHAPES[d])), h('span', null, it));
+        return h('li', { style: answerStyle(d) }, h('span', { class: 'shape' }, svg(SHAPES[d])), h('span', null, it));
       })));
   }
   // Forklaring ved siden av (for flervalg står den allerede ved svarkortene).
@@ -985,7 +1003,7 @@ function wordCloud(answers) {
   // Største ord i midten, de andre fordelt annenhver side.
   const arranged = [];
   list.forEach((w, i) => (i % 2 ? arranged.push(w) : arranged.unshift(w)));
-  const palette = ['#2A1D05', ...COLORS, '#A8740F'];
+  const palette = CLOUD_COLORS;
   return h('div', { class: 'cloud-wrap' },
     h('div', { class: 'cloud' }, arranged.map(([k, w], i) => h('button', {
       class: 'cloud-word', title: t('host.hideWord'),
@@ -1055,6 +1073,7 @@ function renderScoreboard(main) {
   const all = G.teams ? rankedTeams() : ranked();
   // Mulige poeng så langt = toppen av fjellet.
   const possible = quiz.questions.slice(0, G.qi + 1).map((x, i) => qAt(i)).filter(x => SCORED.includes(x.type)).reduce((sum, x) => sum + basePoints(x), 0) || 1;
+  if (CITY) return renderCityBoard(main, all, possible);
   const scene = h('div', { class: 'trail-scene' }, trailScene(), h('h1', { class: 'scene-title day' }, G.teams ? t('host.teamBoard') : t('host.scoreboard')));
   put(main, scene, h('div', { class: 'hfoot' }, climberBanner(), h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
 
@@ -1075,7 +1094,7 @@ function renderScoreboard(main) {
   const crowded = top.some((p, i) => i && frac(top[i - 1].score) - frac(p.score) < 0.1);
   const label = p => h('span', { class: 'trail-label' },
     h('b', { style: p.color ? { color: p.color } : null }, p.name),
-    h('span', null, t('play.score', { n: p.score }), p.pts ? h('em', null, ' ' + t('play.points', { n: p.pts })) : null, p.streak > 1 ? ' · ' + t('play.streak', { n: p.streak }) : null));
+    h('span', null, t('play.score', { n: units(p.score) }), p.pts ? h('em', null, ' ' + t('play.points', { n: units(p.pts) })) : null, p.streak > 1 ? ' · ' + t('play.streak', { n: p.streak }) : null));
   const markers = top.map((p, i) => {
     const endX = parseFloat(at(ends[i]).left);
     // Navnelappen står annenhver gang til høyre og venstre, men aldri utenfor kanten.
@@ -1098,6 +1117,38 @@ function renderScoreboard(main) {
     if (k < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
+}
+
+// Metropolis: hver av de åtte beste har sin egen heis opp et tårn i Barcode. Jo flere poeng, jo høyere etasje.
+// Toppetasjen tilsvarer alle mulige poeng så langt, akkurat som toppen av fjellet.
+function renderCityBoard(main, all, possible) {
+  const scene = h('div', { class: 'trail-scene city-board' }, cityBoardBackdrop(),
+    h('h1', { class: 'scene-title day city-title' }, G.teams ? t('host.teamBoard') : t('host.scoreboard')));
+  put(main, scene, h('div', { class: 'hfoot' }, climberBanner(), h('button', { class: 'btn primary big', onclick: next }, t('host.next'))));
+  const B0 = 9, TRAVEL = 50; // heisen går fra 9 % til 59 % av høyden (bunnen av heisen)
+  const at = score => B0 + TRAVEL * Math.min(1, Math.max(0, score / possible));
+  // Etasjeskala og toppetasjen
+  [0, 0.25, 0.5, 0.75, 1].forEach(f => scene.append(h('div', { class: 'cb-tick' + (f === 1 ? ' top' : ''), style: { bottom: (B0 + TRAVEL * f) + '%' } },
+    h('span', null, f === 1 ? t('city.topFloor') + ' · ' + t('play.score', { n: units(possible) }) : t('play.score', { n: units(possible * f) })))));
+  const top = all.slice(0, 8);
+  const slot = 84 / 8;
+  const x0 = 13 + (8 - top.length) * slot / 2;
+  const cars = top.map((p, i) => {
+    const lane = top.length - 1 - i; // lederen lengst til høyre, så tavlen stiger mot høyre
+    const left = x0 + lane * slot;
+    scene.append(h('div', { class: 'cb-tower', style: `left:${left + slot * 0.08}%;width:${slot * 0.84}%;height:${80 + (lane * 37 % 4) * 2}%;${CITY_FACADES[(lane * 5 + 1) % CITY_FACADES.length]}` },
+      h('div', { class: 'cb-shaft' })));
+    const who = G.teams ? citizenSvg('team' + p.team, p.color) : citizenSvg(p.id, null);
+    const car = h('div', { class: 'cb-car' + (p.rank === 1 ? ' lead' : ''), style: { left: (left + slot / 2) + '%', bottom: at(p.score - (p.pts || 0)) + '%' } },
+      h('div', { class: 'cb-label' },
+        h('b', { style: p.color ? { color: p.color } : null }, p.name),
+        h('span', null, t('play.score', { n: units(p.score) }), p.pts ? h('em', null, ' ' + t('play.points', { n: units(p.pts) })) : null)),
+      h('div', { class: 'cb-cab' }, h('span', { class: 'cb-floor' }, units(p.score)), who));
+    scene.append(car);
+    return { car, to: at(p.score) };
+  });
+  scene.append(h('div', { class: 'cb-street' }), h('div', { class: 'snow', 'aria-hidden': 'true' }));
+  setTimeout(() => cars.forEach((c, i) => { c.car.style.transitionDelay = (i * 0.08) + 's'; c.car.style.bottom = c.to + '%'; }), 400);
 }
 
 // Pallen: tre fjelltopper (gull, sølv, bronse) som en fjellkjede foran en solnedgang.
@@ -1170,12 +1221,13 @@ function renderPodium(main) {
   const people = ranked();
   const hard = hardest();
   const byPlace = { 1: all[0], 2: all[1], 3: all[2] };
+  if (CITY) return renderCityPodium(main, all, people, hard);
   const labels = PEAKS.map(pk => {
     const p = byPlace[pk.place];
     if (!p) return null;
     return h('div', { class: 'summit s' + pk.place, style: { left: (pk.x / 16) + '%', top: (peakY(pk.y) / 7) + '%', animationDelay: (RISE[pk.place] + 0.9) + 's' } },
       h('div', { class: 'summit-name' }, p.name),
-      h('div', { class: 'summit-score' }, t('play.score', { n: p.score })),
+      h('div', { class: 'summit-score' }, t('play.score', { n: units(p.score) })),
       svg(`<svg class="summit-flag" width="34" height="51" viewBox="-4 -106 72 108" aria-hidden="true">${peakPennant(0, 0, 1, 'sq' + pk.place)}</svg>`));
   });
   put(main,
@@ -1183,13 +1235,39 @@ function renderPodium(main) {
       podiumScene(),
       h('h1', { class: 'scene-title' }, all.length ? (G.teams ? t('host.teamPodium') : t('host.podium')) : t('host.nobody')),
       labels),
+    podiumFooter(people, hard));
+}
+
+// Metropolis: vinnerne har tatt heisen til taket på de tre trappede tårnene i Barcode.
+function renderCityPodium(main, all, people, hard) {
+  const who = p => (p ? (G.teams ? { id: 'team' + p.team, color: p.color } : { id: p.id, color: null }) : null);
+  const LIFT = { 1: 1.8, 2: 1.0, 3: 0.3 };
+  const labels = [1, 2, 3].map(place => {
+    const p = all[place - 1];
+    if (!p) return null;
+    return h('div', { class: 'summit city s' + place, style: { ...podiumLabelAt(place), animationDelay: (LIFT[place] + 2.2) + 's' } },
+      h('div', { class: 'summit-name' }, p.name),
+      h('div', { class: 'summit-score' }, t('play.score', { n: units(p.score) })));
+  });
+  put(main,
+    h('div', { class: 'podium-scene city' },
+      cityPodiumScene({ 1: who(all[0]), 2: who(all[1]), 3: who(all[2]) }),
+      h('h1', { class: 'scene-title' }, all.length ? (G.teams ? t('host.teamPodium') : t('host.podium')) : t('host.nobody')),
+      labels,
+      h('div', { class: 'snow', 'aria-hidden': 'true' })),
+    podiumFooter(people, hard));
+}
+
+// Resten av resultatene og knappene under pallen (felles for begge temaene).
+function podiumFooter(people, hard) {
+  return [
     (G.teams ? people.length : people.length > 3) ? h('details', { class: 'all-results' }, h('summary', null, t('host.allResults')),
-      h('ol', null, (G.teams ? people : people.slice(3)).map(p => h('li', { value: p.rank }, h('span', null, p.name), h('b', null, t('play.score', { n: p.score })))))) : null,
+      h('ol', null, (G.teams ? people : people.slice(3)).map(p => h('li', { value: p.rank }, h('span', null, p.name), h('b', null, t('play.score', { n: units(p.score) })))))) : null,
     h('div', { class: 'hfoot' },
       h('div', { class: 'row' },
         people.length ? h('button', { class: 'btn ghost', onclick: downloadResults }, [icon('download'), t('res.download')]) : null,
         hard.length ? h('button', { class: 'btn ghost', onclick: () => { reviewAt = 0; render(); } }, '🔍 ' + t('review.button', { n: hard.length })) : null),
-      h('button', { class: 'btn primary big', onclick: endGame }, t('host.end'))));
+      h('button', { class: 'btn primary big', onclick: endGame }, t('host.end')))];
 }
 
 // ---------- Gjennomgang: spørsmålene flest svarte feil på ----------

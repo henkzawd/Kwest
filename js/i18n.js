@@ -1,5 +1,6 @@
 // Tekster på norsk (standard) og engelsk.
 import { h } from './util.js';
+import { applyTheme } from './game.js';
 
 const no = {
   'lang.switch': 'English',
@@ -491,6 +492,23 @@ const no = {
   'priv.contact': "Har du spørsmål om personvern, snakk med læreren din eller bruk «Gi tilbakemelding» på forsiden.",
   'priv.updated': "Sist oppdatert: november 2026.",
   'priv.back': "Til forsiden",
+  // Tema på storskjermen
+  'ed.theme': 'Tema på storskjermen',
+  'ed.themeHelp': 'Gjelder venterommet, figurene, poengtavlen, pallen, svarfargene og reaksjonene. Spørsmålene ser like ut.',
+  'theme.mountain': 'Fjell – turgåere på vei mot toppen',
+  'theme.city': 'Metropolis – heiser opp skyskraperne i Bjørvika',
+  // Metropolis: tekster som erstatter fjell-tekstene når temaet er valgt
+  'city.playScore': '{n}. etg',
+  'city.playPoints': '+{n} etg',
+  'city.playAltitude': 'opp i tårnet',
+  'city.hostPlayers': '{n} på vei til jobb',
+  'city.hostWaiting': 'Venter på pendlere …',
+  'city.hostScoreboard': 'Hvor høyt har dere kommet?',
+  'city.hostPodium': 'Toppetasjen',
+  'city.hostReactionsHelp': 'Reaksjoner: elevene kan sende 🙋 🫶 ✅ 🤜🤛 som flyr over skjermen i lobbyen og mellom spørsmålene. Trykk for å slå av eller på.',
+  'city.resScore': 'Poeng',
+  'city.topFloor': 'Toppetasjen',
+  'city.hostKickHint': 'Trykk på en pendler for å fjerne den',
 };
 
 const en = {
@@ -786,6 +804,21 @@ const en = {
   'priv.contact': "If you have questions about privacy, talk to your teacher or use \"Give feedback\" on the front page.",
   'priv.updated': "Last updated: November 2026.",
   'priv.back': "To the front page",
+  'ed.theme': 'Big-screen theme',
+  'ed.themeHelp': 'Applies to the waiting room, the characters, the scoreboard, the podium, the answer colours and the reactions. The questions look the same.',
+  'theme.mountain': 'Mountain – hikers on their way to the summit',
+  'theme.city': 'Metropolis – lifts up the skyscrapers in Bjørvika',
+  'city.playScore': 'Floor {n}',
+  'city.playPoints': '+{n} floors',
+  'city.playAltitude': 'up the tower',
+  'city.hostPlayers': '{n} on their way to work',
+  'city.hostWaiting': 'Waiting for commuters …',
+  'city.hostScoreboard': 'How high have you come?',
+  'city.hostPodium': 'The top floor',
+  'city.hostReactionsHelp': 'Reactions: students can send 🙋 🫶 ✅ 🤜🤛 that float across the screen in the lobby and between questions. Click to turn on or off.',
+  'city.resScore': 'Points',
+  'city.topFloor': 'Top floor',
+  'city.hostKickHint': 'Click a commuter to remove them',
 };
 
 export const dict = { no, en };
@@ -794,8 +827,18 @@ export let lang = (() => {
   try { return localStorage.getItem('kwest-lang') === 'en' ? 'en' : 'no'; } catch { return 'no'; }
 })();
 
+// Tema: Metropolis bytter ut noen tekster (f.eks. «m» med «etg»). Nøkkelen «play.score» blir «city.playScore».
+let variant = null;
+export function useTheme(name) {
+  const th = applyTheme(name);
+  variant = th === 'city' ? 'city' : null;
+  return th;
+}
+
 export function t(key, vars) {
-  let s = dict[lang][key] ?? dict.no[key];
+  let s;
+  if (variant) { const vk = variant + '.' + key.replace(/\.(.)/, (_, c) => c.toUpperCase()); s = dict[lang][vk] ?? dict.no[vk]; }
+  s ??= dict[lang][key] ?? dict.no[key];
   if (s === undefined) { console.warn('Mangler tekst:', key); s = key; }
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split('{' + k + '}').join(v);
   return s;

@@ -1,9 +1,9 @@
 // Hjemmelekse: eleven tar et kwest alene på mobilen, i sitt eget tempo, uten navn.
 // Til slutt sendes bare anonyme svar (riktig/galt og svaret) til læreren.
 import { h, shuffle } from './util.js';
-import { t } from './i18n.js';
+import { t, useTheme } from './i18n.js';
 import { backend } from './backend.js';
-import { SCORED, playable, judge, basePoints } from './game.js';
+import { SCORED, playable, judge, basePoints, themeOf } from './game.js';
 import { exclamationSvg, questionSvg } from './logo.js';
 
 let ui = null;
@@ -19,6 +19,7 @@ export async function startHomework(code, helpers) {
   if (!a.open) return show(() => msg(exclamationSvg(80), t('hw.closed'), t('hw.closedText')));
   H.title = a.title || 'Kwest';
   H.settings = a.data?.settings || {};
+  useTheme(themeOf(H.settings)); // samme svarfarger som i klasserommet
   H.questions = (a.data?.questions || []).map(playable);
   H.answers = H.questions.map(() => null);
   H.nScored = H.questions.filter(q => SCORED.includes(q.type)).length;

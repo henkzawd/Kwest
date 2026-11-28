@@ -8,7 +8,7 @@
 //   /.well-known/oauth-protected-resource…    – forteller Claude hvor innloggingen skjer
 //   /.well-known/oauth-authorization-server   – reserve for eldre klienter (videresender Supabase sin)
 import { SUPABASE_URL, SUPABASE_KEY } from '../js/config.js';
-import { normalizeQuestion, exportQuiz, validateQuiz, readTime, soundtrack, SOUNDTRACKS } from '../js/game.js';
+import { normalizeQuestion, exportQuiz, validateQuiz, readTime, soundtrack, SOUNDTRACKS, themeOf, THEMES } from '../js/game.js';
 
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const AUTH_SERVER = SUPABASE_URL.replace(/\/$/, '') + '/auth/v1';
@@ -123,6 +123,7 @@ const SETTINGS_SCHEMA = {
     anonymous: { type: 'boolean', description: 'Students get random animal names instead of the names they type (default false). Only change if the teacher asks.' },
     readTime: { type: 'integer', minimum: 3, maximum: 20, description: 'Seconds the question is shown before students can answer (default 6). Use more for long questions.' },
     soundtrack: { type: 'string', enum: SOUNDTRACKS, description: 'Background music on the big screen: "whiteTiger" (Temple of the White Tiger: flute, temple drums; default), "jotunheimen" (Norwegian mountains: strings and horns in a romantic, Grieg-like style) or "none" (sound effects only). Only change if the teacher asks.' },
+    theme: { type: 'string', enum: THEMES, description: 'Look of the big screen: "mountain" (hikers climbing a mountain; default) or "city" ("Metropolis": lifts going up the skyscrapers of Barcode in Oslo on a winter evening, with banking-themed answer icons). Only change if the teacher asks.' },
   },
 };
 
@@ -230,6 +231,7 @@ const cleanSettings = (s, base = {}) => ({
   anonymous: !!(s?.anonymous ?? base.anonymous),
   readTime: readTime({ readTime: s?.readTime ?? base.readTime }),
   soundtrack: soundtrack({ soundtrack: s?.soundtrack ?? base.soundtrack }),
+  theme: themeOf({ theme: s?.theme ?? base.theme }),
 });
 
 function summary(quiz, link) {

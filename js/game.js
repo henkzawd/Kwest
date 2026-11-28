@@ -1,14 +1,20 @@
 // Spørsmålstyper, poengberegning og import/eksport-format.
 import { uid, normText, levenshtein } from './util.js';
 
-// Svarfargene: solnedgang, fjord, lyng og skifer – med hvert sitt symbol (sol, bølge, lyng og måne).
+// Svarfargene og symbolene. Temaet «Fjell» (standard): solnedgang, fjord, lyng og skifer med sol, bølge, lyng og måne.
+// Temaet «Metropolis» bytter til sjøgrønn, himmelblå, kull og offwhite med mynter, kort, sparegris og vekstgraf.
+// Listene under endres på stedet av applyTheme(), så alle som har importert dem får riktig tema.
 export const COLORS = ['#D0571F', '#12808C', '#A23A72', '#3E4C63'];
+export const COLOR_FG = ['#fff', '#fff', '#fff', '#fff']; // farge på symbolet inni sirkelen
+export const COLOR_EDGE = [...COLORS]; // kantfarge (offwhite trenger en mørkere kant for å synes)
 export const SHAPES = [
   '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6" fill="currentColor"/><path d="M12 2.6v2.6M12 18.8v2.6M2.6 12h2.6M18.8 12h2.6M5.4 5.4l1.8 1.8M16.8 16.8l1.8 1.8M5.4 18.6l1.8-1.8M16.8 7.2l1.8-1.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>',
   '<svg viewBox="0 0 24 24"><path d="M2.5 9.2c2.4-2.6 4.8-2.6 7.2 0s4.8 2.6 7.2 0c1.6-1.7 3.2-2.3 4.6-1.6M2.5 15.6c2.4-2.6 4.8-2.6 7.2 0s4.8 2.6 7.2 0c1.6-1.7 3.2-2.3 4.6-1.6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/></svg>',
   '<svg viewBox="0 0 24 24"><g fill="currentColor"><circle cx="12" cy="6.4" r="3.3"/><circle cx="17.3" cy="10.3" r="3.3"/><circle cx="15.3" cy="16.5" r="3.3"/><circle cx="8.7" cy="16.5" r="3.3"/><circle cx="6.7" cy="10.3" r="3.3"/></g></svg>',
   '<svg viewBox="0 0 24 24"><path d="M15.2 2.8a9.4 9.4 0 1 0 6 14.4 7.6 7.6 0 0 1-6-14.4z" fill="currentColor"/></svg>',
 ];
+// Farger i ordskyen.
+export const CLOUD_COLORS = ['#2A1D05', ...COLORS, '#A8740F'];
 
 // Rekkefølgen her er rekkefølgen i «Nytt spørsmål»-menyen.
 export const TYPES = ['quiz', 'truefalse', 'short', 'poll', 'wordcloud', 'slider', 'order', 'info', 'scoreboard'];
@@ -19,8 +25,52 @@ export const SCORED = ['quiz', 'truefalse', 'short', 'slider', 'order'];
 export const DISCUSS_TYPES = ['quiz', 'truefalse', 'poll'];
 // Lag: farger og antall (navnene står i i18n.js som team.0 … team.7).
 export const TEAM_COLORS = ['#D0571F', '#12808C', '#A23A72', '#3E4C63', '#A8740F', '#4E7A3B', '#7A4A2E', '#6D6A5C'];
-// Reaksjoner elevene kan sende til storskjermen (bare disse – ingen fritekst).
+// Reaksjoner elevene kan sende til storskjermen (bare disse – ingen fritekst). Bokstaven er nøkkelen i meldingen.
 export const REACTIONS = { g: '🐐', p: '⛰️' };
+
+// ---------- Tema for storskjermen ----------
+// «mountain» (Fjell, standard) eller «city» (Metropolis: Barcode i Oslo en vinterkveld).
+export const THEMES = ['mountain', 'city'];
+export function themeOf(settings) { return settings?.theme === 'city' ? 'city' : 'mountain'; }
+const STROKE = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const THEME_DATA = {
+  mountain: {
+    colors: [...COLORS], fg: [...COLOR_FG], edge: [...COLORS], shapes: [...SHAPES], cloud: [...CLOUD_COLORS], reactions: { ...REACTIONS },
+  },
+  city: {
+    colors: ['#007272', '#7DB7F0', '#2B3236', '#F4F1EA'],
+    fg: ['#fff', '#0E2233', '#fff', '#2B3236'],
+    edge: ['#007272', '#3F86CF', '#2B3236', '#8C8576'],
+    shapes: [
+      STROKE('<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v4c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 10v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4"/><path d="M5 14v4c0 1.7 3.1 3 7 3s7-1.3 7-3v-4"/>'),
+      STROKE('<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19"/><path d="M6 15h4"/>'),
+      STROKE('<path d="M4 11c0-3.3 3.6-6 8-6 1.4 0 2.7.3 3.8.8L19 4.5v3.3c1 .9 1.7 2 1.9 3.2H22v3h-1.4c-.5 1.2-1.4 2.3-2.6 3V20h-3v-1.4a10 10 0 0 1-4 0V20H8v-2.3C5.6 16.5 4 14 4 11z"/><path d="M10 7.8h3.4"/><circle cx="16.4" cy="10.2" r=".6" fill="currentColor"/>'),
+      STROKE('<path d="M3 20h18"/><path d="M5 16l5-5 3 3 6-7"/><path d="M15 7h4v4"/>'),
+    ],
+    cloud: ['#0F2A2D', '#007272', '#1F5FA8', '#2B3236', '#8A5A00', '#14555A'],
+    // Verdiene i «The Guide»: Start med kunden, Gjør det rette, Få det gjort, Ett lag.
+    reactions: { k: '🙋', r: '🫶', d: '✅', l: '🤜🤛' },
+  },
+};
+export let THEME = 'mountain';
+const fill = (arr, src) => { arr.length = 0; arr.push(...src); };
+export function applyTheme(name) {
+  THEME = THEMES.includes(name) ? name : 'mountain';
+  const d = THEME_DATA[THEME];
+  fill(COLORS, d.colors); fill(COLOR_FG, d.fg); fill(COLOR_EDGE, d.edge); fill(SHAPES, d.shapes); fill(CLOUD_COLORS, d.cloud);
+  for (const k of Object.keys(REACTIONS)) delete REACTIONS[k];
+  Object.assign(REACTIONS, d.reactions);
+  if (typeof document !== 'undefined') document.body?.classList.toggle('theme-city', THEME === 'city');
+  return THEME;
+}
+// CSS-variablene til et svaralternativ: fyllfarge, symbolfarge og kantfarge.
+export function answerStyle(ci) {
+  return { '--c': COLORS[ci], '--cf': COLOR_FG[ci], '--ce': COLOR_EDGE[ci] };
+}
+// Poeng vises som høydemeter i Fjell og som etasjer i Metropolis (10 poeng = én etasje, så et fullt riktig svar gir opptil ti etasjer).
+export function units(points) {
+  return THEME === 'city' ? Math.round((Number(points) || 0) / 10) : points;
+}
 
 // Finalen: det siste spørsmålet som gir poeng teller dobbelt når læreren har slått det på.
 export function finaleIndex(quiz) {
@@ -64,7 +114,7 @@ export function soundtrack(settings) {
 }
 
 export function emptyQuiz() {
-  return { title: '', description: '', settings: { leaderboard: true, shuffle: false, finale: false, readTime: DEFAULT_READ_TIME, soundtrack: DEFAULT_SOUNDTRACK }, questions: [newQuestion('quiz')] };
+  return { title: '', description: '', settings: { leaderboard: true, shuffle: false, finale: false, readTime: DEFAULT_READ_TIME, soundtrack: DEFAULT_SOUNDTRACK, theme: 'mountain' }, questions: [newQuestion('quiz')] };
 }
 
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v !== null ? Number(v) : d);
@@ -84,7 +134,7 @@ export function normalizeQuiz(raw) {
   const quiz = {
     title: str(raw.title) || 'Kwest',
     description: str(raw.description),
-    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle, finale: !!raw.settings?.finale, anonymous: !!raw.settings?.anonymous, readTime: readTime(raw.settings), soundtrack: soundtrack(raw.settings) },
+    settings: { leaderboard: raw.settings?.leaderboard !== false, shuffle: !!raw.settings?.shuffle, finale: !!raw.settings?.finale, anonymous: !!raw.settings?.anonymous, readTime: readTime(raw.settings), soundtrack: soundtrack(raw.settings), theme: themeOf(raw.settings) },
     questions: list.map(normalizeQuestion).filter(Boolean),
   };
   if (!quiz.questions.length) throw new Error('no-questions');

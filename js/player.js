@@ -1,11 +1,12 @@
 // Elevsiden: bli med med Kwest-kode + navn, og svar på mobilen.
 import { h, svg, clear, uid, qs, baseUrl, zoomImage } from './util.js';
-import { t, langButton } from './i18n.js';
+import { t, langButton, useTheme } from './i18n.js';
 import { backend } from './backend.js';
 import { feedbackDialog } from './feedback.js';
-import { COLORS, SHAPES, TEAM_COLORS, REACTIONS, colorIndex } from './game.js';
+import { SHAPES, TEAM_COLORS, REACTIONS, colorIndex, answerStyle, units, THEMES } from './game.js';
 import { wordmark, questionSvg, exclamationSvg, landscape, setFavicon } from './logo.js';
 import { hikerSvg } from './hikers.js';
+import { citizenSvg } from './city.js';
 
 setFavicon();
 const app = document.getElementById('app');
@@ -31,8 +32,14 @@ try {
 
 function rerender() { if (S.view) S.view(); }
 
-// Høydemåleren øverst til høyre: et lite fjell foran høydemeterne.
-const altIcon = () => svg('<svg class="alti-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1 14 6 5l3 5 2-3 4 7z" fill="currentColor"/></svg>');
+// Temaet storskjermen bruker («mountain» eller «city»). Kommer med statusen fra storskjermen.
+let theme = 'mountain';
+const isCity = () => theme === 'city';
+
+// Høydemåleren øverst til høyre: et lite fjell foran høydemeterne (eller et høyhus foran etasjene i Metropolis).
+const altIcon = () => svg(isCity()
+  ? '<svg class="alti-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 15V4l5-2v13zM9 15V6h4v9z" fill="currentColor"/></svg>'
+  : '<svg class="alti-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1 14 6 5l3 5 2-3 4 7z" fill="currentColor"/></svg>');
 
 function frame(content, opts = {}) {
   clear(app);
@@ -42,25 +49,26 @@ function frame(content, opts = {}) {
         h('span', { class: 'pbar-name' }, S.name),
         team ? h('span', { class: 'pbar-team', style: { background: team.color } }, team.name) : null,
         S.lost ? h('span', { class: 'pbar-lost' }, t('play.lost')) : null,
-        h('span', { class: 'pbar-score' }, altIcon(), t('play.score', { n: S.score })))
+        h('span', { class: 'pbar-score' }, altIcon(), t('play.score', { n: units(S.score) })))
     : h('header', { class: 'ptop' }, opts.hero ? h('span') : wordmark(34), langButton(rerender));
   app.append(top, h('main', { class: 'pmain ' + (opts.cls || '') }, content));
   if (opts.react) { const bar = reactBar(); if (bar) app.append(bar); }
-  if (!opts.bar) app.append(h('div', { class: 'landscape', 'aria-hidden': 'true' }, landscape()));
+  if (!opts.bar && !(isCity() && S.joined)) app.append(h('div', { class: 'landscape', 'aria-hidden': 'true' }, landscape()));
 }
 
-// ---------- Reaksjoner: 🐐 og ⛰️ til storskjermen ----------
+// ---------- Reaksjoner: 🐐 og ⛰️ (eller verdiene i Metropolis) til storskjermen ----------
 // Trykkene samles og sendes høyst hvert 8. sekund, så storskjermen ikke får for mange meldinger.
 const REACT_GAP = 8000;
-const R = { queue: { g: 0, p: 0 }, last: 0, timer: null };
+const emptyQueue = () => Object.fromEntries(Object.keys(REACTIONS).map(k => [k, 0]));
+const R = { queue: emptyQueue(), last: 0, timer: null };
 function reactBar() {
   if (!S.joined || S.state?.rx === false) return null;
   return h('div', { class: 'react-bar' }, Object.entries(REACTIONS).map(([k, emoji]) =>
     h('button', { class: 'react-btn', type: 'button', 'aria-label': emoji, onclick: e => tapReact(k, emoji, e.currentTarget) }, emoji)));
 }
 function tapReact(k, emoji, btn) {
-  if (R.queue[k] >= 5) return;
-  R.queue[k]++;
+  if ((R.queue[k] || 0) >= 5) return;
+  R.queue[k] = (R.queue[k] || 0) + 1;
   const pop = h('span', { class: 'react-pop', 'aria-hidden': 'true' }, emoji);
   btn.append(pop);
   setTimeout(() => pop.remove(), 900);
@@ -70,10 +78,10 @@ function tapReact(k, emoji, btn) {
 }
 function flushReact() {
   R.timer = null;
-  if (!S.joined || (!R.queue.g && !R.queue.p)) return;
+  if (!S.joined || !Object.values(R.queue).some(Boolean)) return;
   R.last = Date.now();
   S.inbox?.send('react', { id: S.id, ...R.queue });
-  R.queue = { g: 0, p: 0 };
+  R.queue = emptyQueue();
 }
 
 // ---------- Bli med ----------
@@ -132,7 +140,7 @@ function discussView(st) {
   const ci = mine !== null && mine !== undefined ? colorIndex(st.q.type, S.myAnswer) : null;
   message(() => t('play.discuss'), () => t('play.discussText'), {
     icon: h('div', { class: 'big-mark' }, '💬'),
-    extra: mine ? h('div', { class: 'my-answer', style: { '--c': COLORS[ci] } }, h('small', null, t('play.youAnswered')), h('b', null, mine)) : null,
+    extra: mine ? h('div', { class: 'my-answer', style: answerStyle(ci) }, h('small', null, t('play.youAnswered')), h('b', null, mine)) : null,
     react: true,
   });
 }
@@ -214,9 +222,9 @@ document.addEventListener('visibilitychange', () => {
 function lobby() {
   S.view = lobby;
   const team = myTeam();
-  // Samme figur som eleven har på storskjermen (turgåer, eller en sjelden gang en fjellgeit).
+  // Samme figur som eleven har på storskjermen (turgåer eller fjellgeit – eller pendler eller hvalross i Metropolis).
   frame(h('div', { class: 'pmsg lobby' },
-    h('div', { class: 'lobby-hiker' }, hikerSvg(S.id, team?.color, 150)),
+    h('div', { class: 'lobby-hiker' }, (isCity() ? citizenSvg : hikerSvg)(S.id, team?.color, 150)),
     h('div', { class: 'banner' }, S.name),
     team ? h('div', { class: 'team-badge', style: { background: team.color } }, t('play.yourTeam', { name: team.name })) : null,
     h('h1', null, t('join.youreIn'))), { cls: 'center', react: true });
@@ -224,6 +232,9 @@ function lobby() {
 
 // ---------- Spillet ----------
 function onState(st) {
+  // Temaet følger storskjermen. Bytter det, tegnes alt på nytt (også reaksjonsknappene).
+  const th = THEMES.includes(st.th) ? st.th : 'mountain';
+  if (th !== theme) { theme = useTheme(th); R.queue = emptyQueue(); S.state = null; }
   // Samme lobby-status på nytt (fordi andre ble med) – ikke tegn skjermen på nytt.
   if (st.phase === 'lobby' && S.state?.phase === 'lobby' && S.view === lobby && st.rx === S.state.rx
     && st.teams?.of?.[S.id] === S.state.teams?.of?.[S.id] && !!st.teams === !!S.state.teams) { S.state = st; return; }
@@ -284,7 +295,7 @@ function answerBody(q, sendAnswer) {
     const labels = q.type === 'truefalse' ? [t('ed.true'), t('ed.false')] : q.labels;
     body = h('div', { class: 'pgrid n' + labels.length },
       labels.map((label, i) => h('button', {
-        class: 'pbtn', style: { '--c': COLORS[colorIndex(q.type, i)] },
+        class: 'pbtn', style: answerStyle(colorIndex(q.type, i)),
         onclick: () => sendAnswer(i),
       }, h('span', { class: 'shape' }, svg(SHAPES[colorIndex(q.type, i)])), h('span', { class: 'pbtn-text', style: { fontSize: fitSize(label) } }, label))));
   } else if (q.type === 'short') {
@@ -320,7 +331,7 @@ function answerBody(q, sendAnswer) {
 function dragList(q, sendAnswer) {
   const order = q.labels.map((_, i) => i); // visningsindekser, øverst først
   const list = h('div', { class: 'drag-list' });
-  const rows = q.labels.map((label, i) => h('div', { class: 'drag-row', style: { '--c': COLORS[i] } },
+  const rows = q.labels.map((label, i) => h('div', { class: 'drag-row', style: answerStyle(i) },
     h('span', { class: 'drag-pos' }),
     h('span', { class: 'drag-text', style: { fontSize: fitSize(label) } }, label),
     h('span', { class: 'drag-handle', 'aria-hidden': 'true' }, svg('<svg viewBox="0 0 20 20" width="22" height="22"><g fill="currentColor"><circle cx="7" cy="5" r="1.6"/><circle cx="13" cy="5" r="1.6"/><circle cx="7" cy="10" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="13" cy="15" r="1.6"/></g></svg>'))));
@@ -408,7 +419,7 @@ export function resultCard({ ok, answered = true, pts = 0, streak = 0, correct =
   if (ok === null) return h('div', { class: 'result neutral' }, h('h1', null, answered ? t('play.thanks') : t('play.lookScreen')));
   return h('div', { class: 'result ' + (ok ? 'good' : 'bad') + (hasExp ? ' compact' : '') },
     h('span', { class: 'ribbon' + (ok ? '' : ' slate') }, ok ? t('play.correct') : answered ? t('play.wrong') : t('play.noAnswer')),
-    ok && pts ? h('div', { class: 'result-gain' }, t('play.points', { n: pts }), h('small', null, t('play.altitude'))) : null,
+    ok && pts ? h('div', { class: 'result-gain' }, t('play.points', { n: units(pts) }), h('small', null, t('play.altitude'))) : null,
     !ok && correct ? h('p', { class: 'result-correct' }, t('play.correctWas'), ' ', h('b', null, correct)) : null,
     (ok && streak > 1) || climb ? h('div', { class: 'result-chips' },
       ok && streak > 1 ? h('span', null, t('play.streak', { n: streak }) + (streak >= 5 ? '!' : '')) : null,

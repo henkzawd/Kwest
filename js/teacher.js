@@ -2,7 +2,7 @@
 import { h, svg, clear, debounce, modal, confirmBox, toast, readImage, download, copyText, fmtDate, baseUrl, uid } from './util.js';
 import { t, lang, langButton } from './i18n.js';
 import { backend } from './backend.js';
-import { COLORS, SHAPES, TYPES, TYPE_ICONS, TIMES, DISCUSS_TYPES, SCORED, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz, READ_TIMES, DEFAULT_READ_TIME, readTime, SOUNDTRACKS, soundtrack } from './game.js';
+import { SHAPES, answerStyle, applyTheme, themeOf, THEMES, TYPES, TYPE_ICONS, TIMES, DISCUSS_TYPES, SCORED, colorIndex, newQuestion, emptyQuiz, normalizeQuiz, exportQuiz, validateQuiz, READ_TIMES, DEFAULT_READ_TIME, readTime, SOUNDTRACKS, soundtrack } from './game.js';
 import { feedbackDialog } from './feedback.js';
 import { icon } from './icons.js';
 import { connectSteps } from './connect.js';
@@ -591,6 +591,7 @@ function setStatus(s) {
 
 function drawEditor() {
   const q = E.quiz;
+  applyTheme(themeOf(q.settings)); // svarfargene i redigeringen følger temaet
   const title = h('input', { class: 'title-input', value: q.title, placeholder: t('ed.title'), disabled: E.readonly, oninput: e => { q.title = e.target.value; changed(); } });
   const startBtn = h('button', { class: 'btn primary', onclick: () => startGame(false) }, t('ed.play'));
   shell(h('div', { class: 'editor' + (E.readonly ? ' readonly' : '') },
@@ -836,7 +837,7 @@ function audioBox(q, ro) {
 
 function optionTile(i, type, content, extra) {
   const ci = colorIndex(type, i);
-  return h('div', { class: 'opt', style: { '--c': COLORS[ci] } }, h('span', { class: 'opt-shape' }, svg(SHAPES[ci])), content, extra);
+  return h('div', { class: 'opt', style: answerStyle(ci) }, h('span', { class: 'opt-shape' }, svg(SHAPES[ci])), content, extra);
 }
 
 function typeEditor(q, ro, rerender) {
@@ -1131,6 +1132,10 @@ function settingsDialog() {
       h('select', { onchange: e => { q.settings.soundtrack = e.target.value; changed(); } },
         SOUNDTRACKS.map(id => h('option', { value: id, selected: id === soundtrack(q.settings) }, t('soundtrack.' + id)))),
       h('small', { class: 'muted' }, t('ed.soundtrackHelp'))),
+    h('label', { class: 'field' }, h('span', null, '🏙️ ' + t('ed.theme')),
+      h('select', { onchange: e => { q.settings.theme = e.target.value; changed(); drawEditor(); } },
+        THEMES.map(id => h('option', { value: id, selected: id === themeOf(q.settings) }, t('theme.' + id)))),
+      h('small', { class: 'muted' }, t('ed.themeHelp'))),
     h('label', { class: 'check top' }, h('input', { type: 'checkbox', checked: !!q.settings.anonymous, onchange: e => { q.settings.anonymous = e.target.checked; changed(); } }),
       h('span', null, h('b', null, '🎭 ' + t('ed.anonymous')), h('small', { class: 'muted block' }, t('ed.anonymousHelp')))),
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: q.settings.leaderboard, onchange: e => { q.settings.leaderboard = e.target.checked; changed(); } }), t('ed.leaderboard')),
